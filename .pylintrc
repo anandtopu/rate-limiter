@@ -1,0 +1,9 @@
+[MASTER]
+init-hook='import sys; sys.path.append(".")'
+
+[MESSAGES CONTROL]
+# Disable strict errors for tests or missing docstrings broadly if they get annoying
+disable=
+    missing-module-docstring,
+    missing-function-docstring,
+    missing-class-docstring
