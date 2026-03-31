@@ -45,7 +45,7 @@ class RedisRateLimiter:
         self.redis = redis_client
         self.script = self.redis.register_script(TOKEN_BUCKET_SCRIPT)
 
-    async def is_allowed(self, key: str, rate: float, capacity: int, requested: int = 1) -> Tuple[bool, int]:
+    async def is_allowed(self, key: str, rate: float, capacity: int, requested: int = 1) -> Tuple[bool, int, bool]:
         """
         Check if a request is allowed based on the Token Bucket algorithm.
         rate: tokens per second
@@ -60,9 +60,9 @@ class RedisRateLimiter:
             )
             allowed_int, updated_tokens = result
             # updated_tokens might be a float in some Redis Lua returns, depending on math
-            return bool(allowed_int), int(updated_tokens)
+            return bool(allowed_int), int(updated_tokens), False
         except redis.RedisError as e:
             # Concept: Fail-open strategy. If Redis is down, we allow the request.
             # Logging should catch this in production.
             print(f"Redis error: {e}. Failing open.")
-            return True, capacity - requested
+            return True, capacity - requested, True
