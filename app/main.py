@@ -6,6 +6,7 @@ from app.config import settings
 from app.core.limiter import RedisRateLimiter
 from app.core.rules import RulesManager
 import app.api.depends as depends
+from app.ai.telemetry import telemetry_hub
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -34,3 +35,11 @@ async def health_check():
 @app.get("/api/data", dependencies=[Depends(depends.rate_limit)])
 async def get_data():
     return {"data": "Protected resource"}
+
+@app.get("/ai/signals")
+async def ai_signals():
+    return telemetry_hub.snapshot()
+
+@app.post("/ai/recommendations")
+async def ai_recommendations():
+    return telemetry_hub.generate_recommendations()
