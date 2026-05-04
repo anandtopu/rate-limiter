@@ -24,6 +24,11 @@ ENV/
 
 # Unit test / coverage reports
 .pytest_cache/
+.pytest-tmp/
+tmp/
+tmp-test-data/
+scratch_check/
+tmp*/
 .coverage
 coverage.xml
 htmlcov/
@@ -35,6 +40,12 @@ htmlcov/
 
 # Logs
 *.log
+*.history.json
+
+# Runtime data stores
+data/
+*.sqlite3
+*.sqlite3-*
 
 # OS / editor
 .DS_Store
@@ -55,3 +66,9 @@ Thumbs.db
 
 # Python tooling caches
 .ruff_cache/
+.pip-audit-cache/
+.tmp/
+.uv-cache/
+.uv-python/
+.venv-broken-*/
+.venv-py314-*/

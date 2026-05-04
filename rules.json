@@ -3,23 +3,39 @@
     "/api/data": {
       "global_limit": {
         "rate": 1.0,
-        "capacity": 5
+        "capacity": 5,
+        "algorithm": "token_bucket",
+        "fail_mode": "open",
+        "description": "Default demo data API limit",
+        "tier": "free"
       },
       "overrides": {
         "127.0.0.1": {
           "rate": 0.5,
-          "capacity": 2
+          "capacity": 2,
+          "algorithm": "token_bucket",
+          "fail_mode": "open",
+          "description": "Local anonymous demo client",
+          "tier": "anonymous"
         },
         "premium_user_key": {
           "rate": 10.0,
-          "capacity": 100
+          "capacity": 100,
+          "algorithm": "token_bucket",
+          "fail_mode": "open",
+          "description": "Premium demo client",
+          "tier": "premium"
         }
       }
     },
-    "/health": {
+    "/api/limited-health": {
       "global_limit": {
         "rate": 5.0,
-        "capacity": 10
+        "capacity": 10,
+        "algorithm": "fixed_window",
+        "fail_mode": "closed",
+        "description": "Rate-limited health-style demo route",
+        "tier": "platform"
       }
     }
   }
