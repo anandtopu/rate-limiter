@@ -4,7 +4,11 @@ from typing import Any
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+    ConsoleSpanExporter,
+    SimpleSpanProcessor,
+)
 from opentelemetry.trace import Status, StatusCode
 
 _enabled = False
@@ -16,6 +20,10 @@ def configure_tracing(
     enabled: bool,
     service_name: str,
     console_exporter: bool,
+    otlp_enabled: bool = False,
+    otlp_endpoint: str | None = None,
+    otlp_headers: str | None = None,
+    otlp_timeout_s: float = 10.0,
 ) -> None:
     global _configured, _enabled
 
@@ -31,8 +39,40 @@ def configure_tracing(
     if console_exporter:
         provider.add_span_processor(SimpleSpanProcessor(ConsoleSpanExporter()))
 
+    if otlp_enabled:
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+            OTLPSpanExporter,
+        )
+
+        provider.add_span_processor(
+            BatchSpanProcessor(
+                OTLPSpanExporter(
+                    endpoint=otlp_endpoint,
+                    headers=parse_otlp_headers(otlp_headers),
+                    timeout=otlp_timeout_s,
+                )
+            )
+        )
+
     trace.set_tracer_provider(provider)
     _configured = True
+
+
+def parse_otlp_headers(headers: str | None) -> dict[str, str] | None:
+    if not headers:
+        return None
+
+    parsed = {}
+    for pair in headers.split(","):
+        if not pair.strip() or "=" not in pair:
+            continue
+        key, value = pair.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if key:
+            parsed[key] = value
+
+    return parsed or None
 
 
 def start_span(name: str, attributes: dict[str, Any] | None = None):

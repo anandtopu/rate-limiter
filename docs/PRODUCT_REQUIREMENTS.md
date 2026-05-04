@@ -59,7 +59,7 @@ The target product is a demo-ready "Rate Limiter Control Plane + Enforcement API
 
 - No admin API to inspect, validate, reload, or update rules.
 - No authentication on internal/admin-like endpoints, including AI telemetry.
-- Rules are file-backed with local version history and rollback, but no multi-user audit metadata.
+- Rules are file-backed with local version history, rollback, and lightweight audit metadata, but no multi-user approval workflow.
 - Exact route-path matching will not handle templated routes well if the API grows.
 - No endpoint-level metadata such as route owner, tier, sensitivity, or fail behavior.
 
@@ -124,7 +124,7 @@ The MVP should make the project feel complete without turning it into a large pl
 - Add sliding-window or fixed-window algorithms behind a strategy interface.
 - Add policy dry-run mode to compare proposed rules against observed traffic.
 - Add load-test scripts and benchmark results.
-- Add OpenTelemetry tracing.
+- Add OpenTelemetry tracing and optional OTLP exporter configuration.
 - Add GitHub Actions CI. (Implemented with lint, tests, dependency audit, and static security scan.)
 
 ## 8. Functional Requirements

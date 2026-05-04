@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import ValidationError
 
 import app.api.depends as rate_limit_depends
@@ -27,6 +27,17 @@ def get_rules_manager():
 
 def clamp_limit(limit: int) -> int:
     return max(1, min(limit, 500))
+
+
+def audit_metadata(request: Request) -> dict[str, Any]:
+    client_host = request.client.host if request.client else None
+    return {
+        "actor": request.headers.get("X-Audit-Actor") or "admin",
+        "source": request.headers.get("X-Audit-Source") or "admin-api",
+        "reason": request.headers.get("X-Audit-Reason"),
+        "request_id": getattr(request.state, "request_id", None),
+        "client_host": client_host,
+    }
 
 
 @router.get("/rules")
@@ -76,9 +87,12 @@ async def dry_run_rules(payload: dict[str, Any]):
 
 
 @router.put("/rules")
-async def update_rules(payload: dict[str, Any]):
+async def update_rules(payload: dict[str, Any], request: Request):
     try:
-        config = get_rules_manager().update_rules(payload)
+        config = get_rules_manager().update_rules(
+            payload,
+            audit=audit_metadata(request),
+        )
     except ValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -94,9 +108,9 @@ async def update_rules(payload: dict[str, Any]):
 
 
 @router.post("/rules/rollback/{version}")
-async def rollback_rules(version: int):
+async def rollback_rules(version: int, request: Request):
     try:
-        config = get_rules_manager().rollback(version)
+        config = get_rules_manager().rollback(version, audit=audit_metadata(request))
     except (RulesLoadError, ValidationError) as exc:
         detail = exc.errors() if isinstance(exc, ValidationError) else str(exc)
         raise HTTPException(
@@ -114,9 +128,9 @@ async def rollback_rules(version: int):
 
 
 @router.post("/rules/reload")
-async def reload_rules():
+async def reload_rules(request: Request):
     try:
-        get_rules_manager().refresh()
+        get_rules_manager().refresh(audit=audit_metadata(request))
     except (RulesLoadError, ValidationError) as exc:
         record_rule_reload_metric(status="failed")
         detail = exc.errors() if isinstance(exc, ValidationError) else str(exc)

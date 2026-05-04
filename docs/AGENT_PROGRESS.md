@@ -36,6 +36,8 @@ Last updated: 2026-05-04
 | 10 | Done | Optional SQLite telemetry persistence and admin inspection endpoint. |
 | 11 | Done | README dashboard screenshots for desktop and narrow layouts. |
 | 12 | Done | CI dependency audit and static security scanning with vulnerable pins upgraded. |
+| 13 | Done | Rule history audit metadata for updates, reloads, and rollbacks. |
+| 14 | Done | Optional OpenTelemetry OTLP/HTTP exporter configuration. |
 
 ## Verification Commands
 
@@ -61,7 +63,7 @@ curl.exe -s http://localhost:8001/admin/telemetry/persistent -H "X-Admin-Key: de
 
 ## Next Recommended Work
 
-1. Add richer audit metadata for rule changes.
-2. Add optional OpenTelemetry OTLP exporter configuration.
-3. Add richer persisted telemetry summaries in the dashboard.
-4. Add generated SBOM artifact in CI.
+1. Add richer persisted telemetry summaries in the dashboard.
+2. Add generated SBOM artifact in CI.
+3. Add UI controls for rule update audit metadata.
+4. Add a local collector compose profile for tracing demos.

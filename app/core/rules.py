@@ -164,13 +164,17 @@ class RulesManager:
             "changed": changed,
         }
 
-    def update_rules(self, data: dict[str, Any]) -> RateLimitConfig:
+    def update_rules(
+        self,
+        data: dict[str, Any],
+        audit: dict[str, Any] | None = None,
+    ) -> RateLimitConfig:
         new_config = self.validate_rules(data)
         config_path = Path(self.config_path)
         serialized = new_config.model_dump(mode="json")
 
         self._atomic_write_json(config_path, serialized)
-        self._append_history(new_config, action="update")
+        self._append_history(new_config, action="update", audit=audit)
         return self._apply_config(new_config)
 
     def _read_history(self) -> list[dict[str, Any]]:
@@ -181,7 +185,22 @@ class RulesManager:
             return []
 
         versions = data.get("versions", [])
-        return versions if isinstance(versions, list) else []
+        if not isinstance(versions, list):
+            return []
+
+        return [
+            self._normalize_history_entry(version)
+            for version in versions
+            if isinstance(version, dict)
+        ]
+
+    def _normalize_history_entry(self, entry: dict[str, Any]) -> dict[str, Any]:
+        action = str(entry.get("action") or "unknown")
+        return {
+            **entry,
+            "rolled_back_from": entry.get("rolled_back_from"),
+            "audit": self._normalize_audit(entry.get("audit"), action=action),
+        }
 
     def _write_history(self, versions: list[dict[str, Any]]) -> None:
         self._atomic_write_json(self.history_path, {"versions": versions})
@@ -198,6 +217,7 @@ class RulesManager:
         *,
         action: str,
         rolled_back_from: int | None = None,
+        audit: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         versions = self._read_history()
         version = max((item.get("version", 0) for item in versions), default=0) + 1
@@ -206,11 +226,36 @@ class RulesManager:
             "created_at": int(time.time()),
             "action": action,
             "rolled_back_from": rolled_back_from,
+            "audit": self._normalize_audit(audit, action=action),
             "rules": config.model_dump(mode="json"),
         }
         versions.append(entry)
         self._write_history(versions)
         return entry
+
+    def _normalize_audit(
+        self,
+        audit: dict[str, Any] | None,
+        *,
+        action: str,
+    ) -> dict[str, Any]:
+        audit = audit or {}
+
+        def clean(value: Any, default: str | None = None, max_length: int = 240) -> str | None:
+            if value is None:
+                return default
+            text = str(value).strip()
+            if not text:
+                return default
+            return text[:max_length]
+
+        return {
+            "actor": clean(audit.get("actor"), default="system", max_length=120),
+            "source": clean(audit.get("source"), default=f"rules-manager:{action}", max_length=120),
+            "reason": clean(audit.get("reason"), max_length=500),
+            "request_id": clean(audit.get("request_id"), max_length=120),
+            "client_host": clean(audit.get("client_host"), max_length=120),
+        }
 
     def history(self) -> dict[str, Any]:
         versions = self._read_history()
@@ -226,7 +271,7 @@ class RulesManager:
 
         return max(item.get("version", 0) for item in versions)
 
-    def rollback(self, version: int) -> RateLimitConfig:
+    def rollback(self, version: int, audit: dict[str, Any] | None = None) -> RateLimitConfig:
         versions = self._read_history()
         target = next((item for item in versions if item.get("version") == version), None)
         if not target:
@@ -234,7 +279,12 @@ class RulesManager:
 
         new_config = self.validate_rules(target["rules"])
         self._atomic_write_json(Path(self.config_path), new_config.model_dump(mode="json"))
-        self._append_history(new_config, action="rollback", rolled_back_from=version)
+        self._append_history(
+            new_config,
+            action="rollback",
+            rolled_back_from=version,
+            audit=audit,
+        )
         return self._apply_config(new_config)
 
     def get_rule(self, route_path: str, identifier: str) -> RateLimitRule:
@@ -251,9 +301,11 @@ class RulesManager:
             
         return route_limits.global_limit
 
-    def refresh(self) -> RateLimitConfig:
+    def refresh(self, audit: dict[str, Any] | None = None) -> RateLimitConfig:
         """
         Reload the rules configuration without discarding active rules on failure.
         """
         data = self._read_rules_file()
-        return self._apply_config(self.validate_rules(data))
+        config = self.validate_rules(data)
+        self._append_history(config, action="reload", audit=audit)
+        return self._apply_config(config)

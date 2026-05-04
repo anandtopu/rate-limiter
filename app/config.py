@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     enable_tracing: bool = False
     trace_service_name: str = "portfolio-rate-limiter"
     trace_console_exporter: bool = True
+    trace_otlp_enabled: bool = False
+    trace_otlp_endpoint: str | None = None
+    trace_otlp_headers: str | None = None
+    trace_otlp_timeout_s: float = 10.0
     persist_telemetry: bool = False
     telemetry_db_path: str = "data/telemetry.sqlite3"
 

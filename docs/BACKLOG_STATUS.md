@@ -24,17 +24,21 @@
 - Persist telemetry in SQLite.
 - Add dashboard screenshots to README.
 - Add dependency and security scanning in CI.
+- Add richer rule audit metadata such as actor, source, and reason.
+- Add optional OpenTelemetry OTLP exporter configuration.
 
 ## Remaining
 
-- Add richer rule audit metadata such as actor, source, and reason.
-- Add optional OpenTelemetry OTLP exporter configuration.
 - Add richer persisted telemetry summaries in the dashboard.
 - Add generated SBOM artifact in CI.
+- Add UI controls for rule update audit metadata.
+- Add a local collector compose profile for tracing demos.
 
 ## Resume Notes
 
-- The next technical backlog item is richer rule audit metadata.
+- The next technical backlog item is richer persisted telemetry summaries in the dashboard.
+- OTLP/HTTP trace export is controlled by `TRACE_OTLP_ENABLED`, `TRACE_OTLP_ENDPOINT`, `TRACE_OTLP_HEADERS`, and `TRACE_OTLP_TIMEOUT_S`; it only initializes when `ENABLE_TRACING=true`.
+- Rule history now records audit metadata for updates, reloads, and rollbacks. Admin callers can pass `X-Audit-Actor`, `X-Audit-Source`, and `X-Audit-Reason`; request ID and client host are captured automatically.
 - CI now runs `pip-audit` for dependency CVEs and Bandit for static security scanning.
 - `pip-audit` initially flagged vulnerable `pytest` and transitive `starlette`; requirements now use `pytest==9.0.3`, `pytest-asyncio==1.3.0`, and `fastapi==0.135.3`, which resolves to `starlette==1.0.0`.
 - README now includes desktop and narrow dashboard screenshots from `docs/assets/`.

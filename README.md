@@ -22,7 +22,7 @@ This repository is being upgraded into a portfolio-ready "Rate Limiter Control P
 - **Admin Rule API**: `X-Admin-Key` protects rule inspect, validate, update, and reload endpoints.
 - **Operational Endpoints**: `/health`, `/ready`, and `/metrics` expose process health, Redis readiness, and Prometheus-style counters.
 - **Request Tracing**: `X-Request-ID` is accepted or generated and echoed on responses.
-- **Optional OpenTelemetry Tracing**: `ENABLE_TRACING=true` emits request and limiter spans and returns `X-Trace-ID`.
+- **Optional OpenTelemetry Tracing**: `ENABLE_TRACING=true` emits request and limiter spans, returns `X-Trace-ID`, and can export traces to an OTLP/HTTP collector.
 - **Interactive Demo Dashboard**: `/demo` provides browser controls for request simulation, live headers, signals, recommendations, and active rules.
 
 ## Architecture
@@ -62,7 +62,7 @@ Core modules:
 This project is production-inspired, not fully production-ready yet. The current tradeoffs are explicit:
 
 - **Telemetry persistence is optional**: in-memory signals stay as the fast path; SQLite persistence is best-effort and off by default.
-- **JSON-backed rules**: easy to inspect, but there is no versioning, audit trail, or rollback yet.
+- **JSON-backed rules**: easy to inspect and backed by local version history, but still not a multi-user database or approval workflow.
 - **Demo admin key**: admin and AI endpoints are protected by `X-Admin-Key`, with a development default that should be overridden outside local demos.
 - **Fail-open by default**: good for availability demos, risky for sensitive endpoints; sensitive demo routes can opt into fail-closed.
 - **Identifier hashing defaults off**: API keys and IPs can be hashed in Redis keys and telemetry with `HASH_IDENTIFIERS=true`, but the default keeps demo behavior easy to inspect.
@@ -183,6 +183,9 @@ Behavior today:
 - `GET /metrics`: Prometheus-style in-memory counters.
 - `X-Request-ID`: accepted when provided, generated when missing, and echoed on every response.
 - `X-Trace-ID`: emitted when OpenTelemetry tracing is enabled.
+- `TRACE_OTLP_ENABLED=true`: exports spans to an OTLP/HTTP collector when tracing is enabled.
+- `TRACE_OTLP_ENDPOINT`: optional trace endpoint such as `http://localhost:4318/v1/traces`.
+- `TRACE_OTLP_HEADERS`: optional comma-separated OTLP headers, such as `authorization=Bearer token,x-tenant=demo`.
 
 ## Admin API
 
@@ -191,6 +194,12 @@ Admin endpoints use the `X-Admin-Key` header. The development default is `dev-ad
 ```bash
 curl http://localhost:8001/admin/rules -H "X-Admin-Key: dev-admin-key"
 ```
+
+Rule-changing endpoints can include optional audit headers:
+
+- `X-Audit-Actor`: human or automation actor.
+- `X-Audit-Source`: dashboard, runbook, CLI, or integration source.
+- `X-Audit-Reason`: short reason for the change.
 
 Available endpoints:
 
@@ -287,5 +296,7 @@ Completed in this upgrade pass:
 - Phase 10: optional SQLite telemetry persistence and admin inspection endpoint.
 - Phase 11: README dashboard preview assets for desktop and narrow layouts.
 - Phase 12: CI dependency audit and static security scanning, plus security-driven dependency upgrades.
+- Phase 13: richer rule history audit metadata for updates, reloads, and rollbacks.
+- Phase 14: optional OpenTelemetry OTLP/HTTP exporter configuration.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.

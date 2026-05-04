@@ -285,6 +285,8 @@ Use FastAPI static files plus one lightweight HTML/CSS/JavaScript page:
 - Add OpenTelemetry tracing. (Implemented in Phase 9)
 - Persist telemetry in Redis streams or SQLite. (SQLite implemented in Phase 10)
 - Add dependency/security scanning in CI. (Implemented in Phase 12)
+- Add richer rule audit metadata such as actor, source, and reason. (Implemented in Phase 13)
+- Add optional OpenTelemetry OTLP exporter configuration. (Implemented in Phase 14)
 
 ## 9. Proposed Milestones
 

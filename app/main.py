@@ -28,6 +28,10 @@ async def lifespan(app: FastAPI):
         enabled=settings.enable_tracing,
         service_name=settings.trace_service_name,
         console_exporter=settings.trace_console_exporter,
+        otlp_enabled=settings.trace_otlp_enabled,
+        otlp_endpoint=settings.trace_otlp_endpoint,
+        otlp_headers=settings.trace_otlp_headers,
+        otlp_timeout_s=settings.trace_otlp_timeout_s,
     )
     if settings.persist_telemetry:
         telemetry_hub.set_store(SQLiteTelemetryStore(settings.telemetry_db_path))
@@ -52,6 +56,10 @@ async def request_id_middleware(request: Request, call_next):
         enabled=settings.enable_tracing,
         service_name=settings.trace_service_name,
         console_exporter=settings.trace_console_exporter,
+        otlp_enabled=settings.trace_otlp_enabled,
+        otlp_endpoint=settings.trace_otlp_endpoint,
+        otlp_headers=settings.trace_otlp_headers,
+        otlp_timeout_s=settings.trace_otlp_timeout_s,
     )
     request_id = request.headers.get("X-Request-ID") or str(uuid4())
     request.state.request_id = request_id

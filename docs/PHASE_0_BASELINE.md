@@ -270,5 +270,69 @@ docker compose exec web pytest -q
 - Result: passed.
 - Ran CI-style security checks in the Linux web container.
 - Result: `pip-audit` reported no known vulnerabilities and Bandit passed.
+- Restarted the live stack with `docker-compose up -d`.
+- Smoke checks:
+  - `GET /ready`: Redis `ok`
+  - `GET /api/data`: `200` with `X-RateLimit-Algorithm: token_bucket`
+  - `GET /demo`: `200`
+- Restarted the live stack with `docker-compose up -d`.
+- Smoke checks:
+  - `GET /ready`: Redis `ok`
+  - `GET /api/data`: `200` with `X-RateLimit-Algorithm: token_bucket`
+  - `GET /admin/rules/history`: existing initial version includes normalized `audit` metadata.
 - Ran `docker-compose run --rm --no-deps web pytest -q`.
 - Result: `39 passed`.
+
+## Phase 13 Verification: 2026-05-04
+
+- Added audit metadata to rule history entries:
+  - `actor`
+  - `source`
+  - `reason`
+  - `request_id`
+  - `client_host`
+- Added optional admin audit headers:
+  - `X-Audit-Actor`
+  - `X-Audit-Source`
+  - `X-Audit-Reason`
+- Captured audit metadata for rule updates, reloads, and rollbacks.
+- Added a `reload` rule history event for successful disk reloads.
+- Normalized legacy history entries on read so older files also return an `audit` object.
+- Updated admin tests for audit metadata on update, reload, and rollback.
+- Ran `.\.venv\Scripts\ruff.exe check .`.
+- Result: passed.
+- Ran `.\.venv\Scripts\pytest.exe -q`.
+- Result: `39 passed`.
+- Ran `.\.venv\Scripts\bandit.exe -q -r app -c pyproject.toml`.
+- Result: passed.
+- Ran `docker-compose build web`.
+- Result: passed.
+- Ran `docker-compose run --rm --no-deps web pytest -q`.
+- Result: `39 passed`.
+- Ran CI-style security checks in the Linux web container.
+- Result: `pip-audit` reported no known vulnerabilities and Bandit passed.
+
+## Phase 14 Verification: 2026-05-04
+
+- Added OTLP/HTTP trace export dependency:
+  - `opentelemetry-exporter-otlp-proto-http==1.29.0`
+- Added tracing configuration:
+  - `TRACE_OTLP_ENABLED`
+  - `TRACE_OTLP_ENDPOINT`
+  - `TRACE_OTLP_HEADERS`
+  - `TRACE_OTLP_TIMEOUT_S`
+- Added optional `BatchSpanProcessor` plus OTLP/HTTP exporter wiring.
+- Kept OTLP export disabled unless both `ENABLE_TRACING=true` and `TRACE_OTLP_ENABLED=true`.
+- Added OTLP header parsing coverage.
+- Ran `.\.venv\Scripts\ruff.exe check .`.
+- Result: passed.
+- Ran `.\.venv\Scripts\pytest.exe -q`.
+- Result: `41 passed`.
+- Ran `.\.venv\Scripts\bandit.exe -q -r app -c pyproject.toml`.
+- Result: passed.
+- Ran `docker-compose build web`.
+- Result: passed.
+- Ran `docker-compose run --rm --no-deps web pytest -q`.
+- Result: `41 passed`.
+- Ran CI-style security checks in the Linux web container.
+- Result: `pip-audit` reported no known vulnerabilities and Bandit passed.

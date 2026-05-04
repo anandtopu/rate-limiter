@@ -9,6 +9,7 @@ from app.config import settings
 from app.core.limiter import RedisRateLimiter
 from app.main import app
 from app.observability.telemetry_store import SQLiteTelemetryStore
+from app.observability.tracing import parse_otlp_headers
 
 
 class FailingScriptRedis:
@@ -61,6 +62,24 @@ async def test_trace_id_header_is_emitted_when_tracing_enabled(client):
 
     assert response.status_code == 200
     assert len(response.headers["x-trace-id"]) == 32
+
+
+def test_parse_otlp_headers():
+    assert parse_otlp_headers(None) is None
+    assert parse_otlp_headers("") is None
+    assert parse_otlp_headers("authorization=Bearer token,x-tenant=demo") == {
+        "authorization": "Bearer token",
+        "x-tenant": "demo",
+    }
+    assert parse_otlp_headers("invalid, x-api-key = secret ") == {
+        "x-api-key": "secret",
+    }
+
+
+def test_otlp_http_exporter_dependency_is_available():
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+
+    assert OTLPSpanExporter is not None
 
 
 @pytest.mark.asyncio

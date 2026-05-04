@@ -29,6 +29,11 @@ async def client(redis_client):
     settings.hash_identifiers = False
     settings.expose_demo_dashboard = True
     settings.enable_tracing = False
+    settings.trace_console_exporter = True
+    settings.trace_otlp_enabled = False
+    settings.trace_otlp_endpoint = None
+    settings.trace_otlp_headers = None
+    settings.trace_otlp_timeout_s = 10.0
     settings.persist_telemetry = False
     
     transport = ASGITransport(app=app)
@@ -38,5 +43,10 @@ async def client(redis_client):
     settings.hash_identifiers = False
     settings.expose_demo_dashboard = True
     settings.enable_tracing = False
+    settings.trace_console_exporter = True
+    settings.trace_otlp_enabled = False
+    settings.trace_otlp_endpoint = None
+    settings.trace_otlp_headers = None
+    settings.trace_otlp_timeout_s = 10.0
     settings.persist_telemetry = False
     telemetry_hub.set_store(None)

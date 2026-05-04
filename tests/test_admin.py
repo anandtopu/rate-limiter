@@ -222,10 +222,25 @@ async def test_rule_reload_refreshes_from_disk(client):
 
     write_rules(rules_path, capacity=3)
 
-    response = await client.post("/admin/rules/reload", headers=ADMIN_HEADERS)
+    response = await client.post(
+        "/admin/rules/reload",
+        headers={
+            **ADMIN_HEADERS,
+            "X-Audit-Actor": "release-bot",
+            "X-Audit-Source": "ops-runbook",
+            "X-Audit-Reason": "sync disk-edited rule file",
+        },
+    )
     assert response.status_code == 200
     assert response.json()["reloaded"] is True
     assert response.json()["rules"]["routes"]["/api/data"]["global_limit"]["capacity"] == 3
+
+    history = (await client.get("/admin/rules/history", headers=ADMIN_HEADERS)).json()
+    reload_entry = history["versions"][-1]
+    assert reload_entry["action"] == "reload"
+    assert reload_entry["audit"]["actor"] == "release-bot"
+    assert reload_entry["audit"]["source"] == "ops-runbook"
+    assert reload_entry["audit"]["reason"] == "sync disk-edited rule file"
 
 
 @pytest.mark.asyncio
@@ -262,7 +277,13 @@ async def test_rule_history_and_rollback(client):
     }
     update_response = await client.put(
         "/admin/rules",
-        headers=ADMIN_HEADERS,
+        headers={
+            **ADMIN_HEADERS,
+            "X-Audit-Actor": "alice@example.com",
+            "X-Audit-Source": "demo-dashboard",
+            "X-Audit-Reason": "tighten demo burst capacity",
+            "X-Request-ID": "audit-update-request",
+        },
         json=update_payload,
     )
     assert update_response.status_code == 200
@@ -273,13 +294,37 @@ async def test_rule_history_and_rollback(client):
     history = history_response.json()
     assert history["current_version"] == 2
     assert [item["action"] for item in history["versions"]] == ["initial", "update"]
+    initial_audit = history["versions"][0]["audit"]
+    assert initial_audit["actor"] == "system"
+    assert initial_audit["source"] == "rules-manager:initial"
+    update_audit = history["versions"][1]["audit"]
+    assert update_audit["actor"] == "alice@example.com"
+    assert update_audit["source"] == "demo-dashboard"
+    assert update_audit["reason"] == "tighten demo burst capacity"
+    assert update_audit["request_id"] == "audit-update-request"
 
-    rollback_response = await client.post("/admin/rules/rollback/1", headers=ADMIN_HEADERS)
+    rollback_response = await client.post(
+        "/admin/rules/rollback/1",
+        headers={
+            **ADMIN_HEADERS,
+            "X-Audit-Actor": "bob@example.com",
+            "X-Audit-Source": "rollback-cli",
+            "X-Audit-Reason": "restore previous free tier limits",
+            "X-Request-ID": "audit-rollback-request",
+        },
+    )
     assert rollback_response.status_code == 200
     assert rollback_response.json()["rolled_back"] is True
     assert rollback_response.json()["rolled_back_from"] == 1
     assert rollback_response.json()["version"] == 3
     assert rollback_response.json()["rules"]["routes"]["/api/data"]["global_limit"]["capacity"] == 2
+
+    history = (await client.get("/admin/rules/history", headers=ADMIN_HEADERS)).json()
+    rollback_audit = history["versions"][2]["audit"]
+    assert rollback_audit["actor"] == "bob@example.com"
+    assert rollback_audit["source"] == "rollback-cli"
+    assert rollback_audit["reason"] == "restore previous free tier limits"
+    assert rollback_audit["request_id"] == "audit-rollback-request"
 
 
 @pytest.mark.asyncio
