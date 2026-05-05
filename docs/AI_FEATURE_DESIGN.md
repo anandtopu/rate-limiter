@@ -131,6 +131,7 @@ Advisor output should use a common schema:
 - Add fake LLM adapter tests when copilot work starts.
 - Add provider adapter tests with mocked HTTP responses so local tests never require network or credentials.
 - Extend load-test/eval scripts for repeatable research scenarios.
+- Add a live HTTP evaluation harness that converts response captures into `RateLimitEvent` records and compares them with synthetic labels.
 
 ## Rollout Strategy
 
@@ -139,4 +140,4 @@ Advisor output should use a common schema:
 3. Add replay dry-run and dashboard summaries.
 4. Add anomaly APIs and scenario tests. (Done in AI-P3.)
 5. Add optional LLM copilot with fake adapter tests. (Done in AI-P4; OpenAI-compatible HTTP adapter added in AI-H2.)
-6. Publish evaluation results and limitations. (Done in AI-P5.)
+6. Publish evaluation results and limitations. (Done in AI-P5; live HTTP comparison added in AI-H3.)

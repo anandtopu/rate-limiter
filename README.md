@@ -28,6 +28,7 @@ This repository has been upgraded into a portfolio-ready "Rate Limiter Control P
 - **Anomaly Detection**: Deterministic findings flag route spikes, retry loops, concentrated offenders, sensitive-route probing, and Redis outage exposure with evidence and suggested next actions.
 - **Optional Policy Copilot**: A disabled-by-default control-plane endpoint can explain AI signals and validate/dry-run generated rule JSON through a provider adapter, with a deterministic fake provider for local tests and an opt-in OpenAI-compatible HTTP adapter.
 - **AI Evaluation Harness**: `scripts/ai_eval.py` runs repeatable labeled scenarios and reports recommendation/anomaly precision, false-positive notes, denied-legitimate estimates, abuse-reduction estimates, and policy-stability status.
+- **Live AI Evaluation**: `scripts/ai_live_eval.py` drives a running app over HTTP and compares captured Redis-backed behavior with the synthetic AI evaluation baseline.
 - **Admin Rule API**: `X-Admin-Key` protects rule inspect, validate, update, approval, and reload endpoints.
 - **Operational Endpoints**: `/health`, `/ready`, and `/metrics` expose process health, Redis readiness, and Prometheus-style counters.
 - **Docker Health Checks**: Compose marks Redis and the web app healthy only after Redis responds and `/ready` succeeds.
@@ -169,6 +170,7 @@ make sbom
 make compose-up
 make load-test
 make ai-eval
+make ai-live-eval
 make redis-outage-demo
 ```
 
@@ -183,6 +185,7 @@ Without `make`, the equivalent checks are:
 docker compose up --build
 .\.venv\Scripts\python.exe scripts\load_test.py --base-url http://localhost:8001
 .\.venv\Scripts\python.exe scripts\ai_eval.py
+.\.venv\Scripts\python.exe scripts\ai_live_eval.py --base-url http://localhost:8001
 .\.venv\Scripts\python.exe scripts\redis_outage_demo.py --base-url http://localhost:8001
 ```
 
@@ -434,6 +437,14 @@ Representative summary:
 
 The mixed workload is now stable: concentrated abusive traffic suppresses broad route tuning, so the advisor prefers the abuse-specific recommendation.
 
+Run the live AI evaluation against a running Docker/Redis stack:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\ai_live_eval.py --base-url http://localhost:8001
+```
+
+The live report sends HTTP traffic to the app, rebuilds AI evaluation events from response status codes and rate-limit headers, and compares the observed recommendation/anomaly labels with the synthetic baseline. The default live run excludes Redis outage exposure because that scenario intentionally requires stopping Redis; use `scripts/redis_outage_demo.py` for that operational demo.
+
 View passive telemetry:
 
 ```bash
@@ -555,5 +566,6 @@ Completed in this upgrade pass:
 - AI-P4: optional policy copilot with disabled-by-default config, provider adapter, fake local provider, validation, dry-run, and dashboard controls.
 - AI-P5: deterministic AI evaluation harness with labeled scenarios, precision/recall reporting, false-positive notes, and documented limitations.
 - AI-H2: OpenAI-compatible HTTP provider adapter for the policy copilot, preserving fake-provider tests and existing validation/dry-run safety boundaries.
+- AI-H3: live HTTP AI evaluation that compares Redis-backed traffic captures with the deterministic synthetic baseline.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.

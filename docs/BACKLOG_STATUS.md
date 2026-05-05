@@ -55,6 +55,7 @@
 - Complete AI-P5 research evaluation harness with labeled scenarios, recommendation/anomaly precision and recall, false-positive notes, denied-legitimate estimates, abuse-reduction estimates, and policy-stability reporting.
 - Harden advisor tuning so concentrated abusive route-identifier pressure suppresses broad route-limit tuning recommendations.
 - Add an OpenAI-compatible HTTP provider adapter behind the AI-P4 policy copilot boundary while preserving the deterministic fake adapter for local tests.
+- Add live HTTP AI evaluation that compares Redis-backed response captures with the deterministic synthetic baseline.
 
 ## Remaining
 
@@ -74,6 +75,7 @@
 
 - The original portfolio upgrade backlog is complete through Phase 35. The new queue is the AI research upgrade described in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md).
 - The AI research queue is complete through AI-P5. Next work should be selected from new user priorities or follow-up hardening identified by the evaluation report.
+- The third post-AI-P5 hardening pass adds `scripts/ai_live_eval.py` and `make ai-live-eval`. The script sends live HTTP traffic, rebuilds AI evaluation events from response headers and status codes, and compares observed labels with `scripts/ai_eval.py`.
 - The second post-AI-P5 hardening pass adds `AI_COPILOT_PROVIDER=openai_compatible` with `AI_COPILOT_ENDPOINT`, optional `AI_COPILOT_API_KEY`, `AI_COPILOT_MODEL`, and `AI_COPILOT_TIMEOUT_S`. Provider failures return `502`, while disabled or missing provider configuration still returns `503`.
 - The first post-AI-P5 hardening pass suppresses route-wide tuning when route denials are dominated by a single abusive identifier. `scripts/ai_eval.py` now reports 9 stable scenarios with recommendation precision `1.0`, recommendation recall `1.0`, anomaly precision `1.0`, and anomaly recall `1.0`.
 - AI-P5 added `scripts/ai_eval.py`, `make ai-eval`, and tests for labeled research scenarios covering normal free traffic, premium bursts, abusive identifiers, retry loops, route spikes, sensitive-route probing, Redis outage exposure, fixed-window pressure, and mixed workloads.

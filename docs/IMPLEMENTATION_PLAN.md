@@ -297,6 +297,7 @@ This keeps runtime behavior deterministic and gives every AI proposal the same s
 - `app/ai/anomalies.py`: deterministic anomaly detectors for spikes, retry loops, concentrated offenders, sensitive-route probing, and Redis outage exposure.
 - `app/ai/copilot.py`: optional LLM adapter and policy-draft workflow, disabled by default, with fake and OpenAI-compatible HTTP providers.
 - `scripts/ai_eval.py`: repeatable research evaluation scenarios and reports.
+- `scripts/ai_live_eval.py`: live HTTP evaluation that compares Redis-backed response captures with the synthetic baseline.
 
 ### Implementation Sequence
 
@@ -308,6 +309,7 @@ This keeps runtime behavior deterministic and gives every AI proposal the same s
 6. Add optional LLM copilot behind explicit configuration.
 7. Add evaluation scenarios and document research results.
 8. Harden the copilot provider boundary with a real HTTP adapter while preserving offline fake-provider tests.
+9. Add a live HTTP evaluation harness for running-app comparison against the synthetic AI baseline.
 
 ### Safety Requirements
 

@@ -10,7 +10,7 @@ CYCLONEDX ?= .venv/Scripts/cyclonedx-py.exe
 SBOM_PATH ?= sbom.json
 BASE_URL ?= http://localhost:8001
 
-.PHONY: install dev test coverage lint security sbom format compose-up compose-down load-test ai-eval redis-outage-demo
+.PHONY: install dev test coverage lint security sbom format compose-up compose-down load-test ai-eval ai-live-eval redis-outage-demo
 
 install:
 	$(UV) pip install --python $(PYTHON) -r requirements-dev.txt
@@ -48,6 +48,9 @@ load-test:
 
 ai-eval:
 	$(PYTHON) scripts/ai_eval.py
+
+ai-live-eval:
+	$(PYTHON) scripts/ai_live_eval.py --base-url $(BASE_URL)
 
 redis-outage-demo:
 	$(PYTHON) scripts/redis_outage_demo.py --base-url $(BASE_URL)

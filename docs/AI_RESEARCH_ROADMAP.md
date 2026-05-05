@@ -220,6 +220,7 @@ Implemented result:
 - `scripts/ai_eval.py` runs labeled synthetic scenarios for normal free traffic, premium bursts, abusive identifiers, retry loops, route spikes, sensitive-route probing, Redis outage exposure, fixed-window pressure, and mixed workloads.
 - The report includes recommendation/anomaly precision and recall, false-positive notes, denied-legitimate estimates, abuse-reduction estimates, policy-stability status, and limitations.
 - Representative output currently reports `recommendation_precision: 1.0`, `recommendation_recall: 1.0`, `anomaly_precision: 1.0`, `anomaly_recall: 1.0`, and `policy_stability: "stable"` after advisor hardening suppresses route-wide tuning when denials are dominated by concentrated abuse.
+- `scripts/ai_live_eval.py` complements the synthetic harness by sending HTTP traffic to a running app, rebuilding evaluation events from rate-limit headers and status codes, and comparing live observed labels with the synthetic baseline. Redis outage exposure remains outside the default live run because it intentionally requires stopping Redis.
 
 ## Documentation Tasks
 
