@@ -116,7 +116,10 @@
         <article class="panel">
           <div class="panel-heading">
             <h2>Recommendations</h2>
-            <button id="recommendationsBtn" type="button" class="icon-button">Run</button>
+            <div class="actions compact-actions">
+              <button id="recommendationsBtn" type="button" class="icon-button">Run</button>
+              <button id="recommendationDraftBtn" type="button" class="icon-button">Draft</button>
+            </div>
           </div>
           <pre id="recommendationsOutput" class="json-output">{}</pre>
         </article>
@@ -135,6 +138,79 @@
             <button id="historyBtn" type="button" class="icon-button">Load</button>
           </div>
           <pre id="historyOutput" class="json-output">{}</pre>
+        </article>
+
+        <article class="panel rules-panel">
+          <div class="panel-heading">
+            <h2>Rule Audit</h2>
+            <button id="auditViewBtn" type="button" class="icon-button">Load</button>
+          </div>
+          <div class="audit-filter-grid">
+            <label>
+              <span>Route</span>
+              <input id="auditRouteFilterInput" type="text" autocomplete="off" placeholder="/api/data" />
+            </label>
+            <label>
+              <span>Actor</span>
+              <input id="auditActorFilterInput" type="text" autocomplete="off" placeholder="admin" />
+            </label>
+            <label>
+              <span>Action</span>
+              <select id="auditActionFilterSelect">
+                <option value="">Any</option>
+                <option value="initial">Initial</option>
+                <option value="update">Update</option>
+                <option value="reload">Reload</option>
+                <option value="rollback">Rollback</option>
+                <option value="approve_sensitive_update">Approve</option>
+              </select>
+            </label>
+            <label>
+              <span>Sensitivity</span>
+              <select id="auditSensitivityFilterSelect">
+                <option value="">Any</option>
+                <option value="public">Public</option>
+                <option value="internal">Internal</option>
+                <option value="sensitive">Sensitive</option>
+              </select>
+            </label>
+            <label>
+              <span>Range</span>
+              <select id="auditRangeFilterSelect">
+                <option value="300">Last 5m</option>
+                <option value="3600" selected>Last 1h</option>
+                <option value="86400">Last 24h</option>
+                <option value="">All time</option>
+              </select>
+            </label>
+            <label>
+              <span>Entries</span>
+              <input id="auditLimitFilterInput" type="number" min="1" max="500" step="1" value="25" />
+            </label>
+          </div>
+          <pre id="auditViewOutput" class="json-output">{}</pre>
+        </article>
+
+        <article class="panel rules-panel">
+          <div class="panel-heading">
+            <h2>Pending Approvals</h2>
+            <div class="actions compact-actions">
+              <button id="pendingApprovalsBtn" type="button" class="icon-button">Load</button>
+              <button id="approvePendingBtn" type="button" class="icon-button">Approve</button>
+              <button id="rejectPendingBtn" type="button" class="icon-button">Reject</button>
+            </div>
+          </div>
+          <div class="approval-grid">
+            <label>
+              <span>Approval ID</span>
+              <input id="approvalIdInput" type="text" autocomplete="off" placeholder="Pending approval ID" />
+            </label>
+            <label class="checkbox-label">
+              <input id="includeResolvedApprovalsInput" type="checkbox" />
+              <span>Include resolved</span>
+            </label>
+          </div>
+          <pre id="pendingApprovalsOutput" class="json-output">{}</pre>
         </article>
 
         <article class="panel rules-panel">

@@ -257,6 +257,38 @@ input {
   margin-bottom: 10px;
 }
 
+.audit-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.approval-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+
+.checkbox-label {
+  min-height: 40px;
+  grid-template-columns: 18px 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.checkbox-label input {
+  width: 16px;
+  min-height: 16px;
+  margin: 0;
+}
+
 .headers div,
 .summary-strip div {
   min-width: 0;
@@ -359,6 +391,14 @@ pre {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .audit-filter-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .approval-grid {
+    grid-template-columns: minmax(0, 1fr) 160px;
+  }
+
   .rules-panel {
     grid-column: span 2;
   }
@@ -383,7 +423,9 @@ pre {
   .headers,
   .summary-strip,
   .telemetry-controls,
-  .audit-grid {
+  .audit-grid,
+  .audit-filter-grid,
+  .approval-grid {
     grid-template-columns: 1fr;
   }
 

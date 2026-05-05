@@ -35,21 +35,22 @@
 - Add trusted reverse-proxy policy for `X-Forwarded-For` client identity.
 - Add templated route keys for path-parameter routes.
 - Add route owner and sensitivity metadata to rules, observability, and demo configuration.
+- Add a sensitive-rule approval workflow with pending changes and second-admin approval.
+- Add an optional SQLite-backed durable rule store while preserving the JSON default path.
+- Add dashboard support for pending rule approvals with approve/reject controls and audit metadata.
+- Add a dedicated rule-change audit API and dashboard view with route, actor, action, sensitivity, and time-range filters.
+- Add a Redis outage demo script for fail-open and fail-closed behavior.
+- Add recommendation-to-dry-run support for editable proposed policy JSON from AI suggestions.
+- Add benchmark output from `scripts/load_test.py` to documentation for free, premium, abusive, and templated-route scenarios.
 
 ## Remaining
 
 ### P0: Next Implementation Candidates
 
-- Add a sensitive-rule approval workflow: proposed changes touching `sensitivity: "sensitive"` routes should be saved as pending changes and require a second admin approval before apply.
-- Add a durable rule-store option backed by SQLite or Redis, while keeping `rules.json` as the simple demo/default path.
-- Add dashboard support for pending rule changes, including approve/reject actions and visible audit metadata.
-- Add a dedicated rule-change audit view that filters history by route, actor, action, sensitivity, and time range.
+- No P0 implementation candidates remain from the current queue.
 
 ### P1: Product And Demo Polish
 
-- Add a Redis outage demo mode or scripted scenario so reviewers can see fail-open and fail-closed behavior without manually breaking Redis.
-- Add a recommendation-to-dry-run flow that turns AI recommendations into editable proposed rule JSON without applying changes automatically.
-- Add benchmark output from `scripts/load_test.py` to documentation, covering free, premium, abusive, and templated-route scenarios.
 - Add coverage reporting in CI so test depth is visible alongside lint, security scan, and SBOM checks.
 
 ### P2: Advanced Platform Enhancements
@@ -61,7 +62,14 @@
 
 ## Resume Notes
 
-- The original portfolio upgrade backlog is complete through Phase 23. The remaining items above are the next implementation queue, not unfinished work from the original MVP pass.
+- The original portfolio upgrade backlog is complete through Phase 30. The remaining items above are the next implementation queue, not unfinished work from the original MVP pass.
+- `scripts/load_test.py` now covers free, premium, abusive fixed-window, and templated account-data scenarios. README includes representative benchmark output.
+- `POST /admin/rules/recommendation-draft` converts current AI recommendations into editable rule JSON and returns a dry-run report without applying changes.
+- `scripts/redis_outage_demo.py` stops the Compose Redis service, probes the fail-open and fail-closed demo routes, and restores Redis. Use `--skip-stop` for probe-only mode.
+- Rule history now has a filtered audit view at `GET /admin/rules/audit`, and the dashboard exposes route, actor, action, sensitivity, range, and limit filters.
+- The dashboard now has a Pending Approvals panel that lists sensitive-rule proposals, exposes proposer audit metadata, and can approve or reject with the current audit headers.
+- `RULE_STORE_BACKEND=sqlite` enables a durable local rule store at `RULE_STORE_DB_PATH`; it seeds from `RULES_PATH` on first run and then persists active rules, history, and pending approvals in SQLite.
+- Sensitive rule updates now return a pending approval instead of applying immediately. `GET /admin/rules/pending` lists requests, and `/approve` requires a different `X-Audit-Actor` before applying to the active rule store and history.
 - Docker Compose now checks Redis with `redis-cli ping`, waits for Redis before starting `web`, and checks the app through `/ready`.
 - Anonymous client IP resolution now ignores `X-Forwarded-For` unless the direct peer is included in `TRUSTED_PROXY_IPS`.
 - Rate-limit rules and telemetry now use FastAPI route templates, such as `/api/accounts/{account_id}/data`, when a route has path parameters.

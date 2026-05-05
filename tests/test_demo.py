@@ -14,6 +14,13 @@ async def test_demo_dashboard_returns_html(client):
     assert "persistentRangeSelect" in response.text
     assert "Rule Change Controls" in response.text
     assert "auditReasonInput" in response.text
+    assert "Pending Approvals" in response.text
+    assert "approvalIdInput" in response.text
+    assert "includeResolvedApprovalsInput" in response.text
+    assert "Rule Audit" in response.text
+    assert "auditRouteFilterInput" in response.text
+    assert "auditSensitivityFilterSelect" in response.text
+    assert "recommendationDraftBtn" in response.text
 
 
 @pytest.mark.asyncio
@@ -38,7 +45,17 @@ async def test_demo_static_assets_are_served(client):
     assert "persistentTelemetryQuery" in js_response.text
     assert "since" in js_response.text
     assert "applyRulesUpdate" in js_response.text
+    assert "loadPendingApprovals" in js_response.text
+    assert "decidePendingApproval" in js_response.text
+    assert "/admin/rules/pending" in js_response.text
+    assert "loadAuditView" in js_response.text
+    assert "auditViewQuery" in js_response.text
+    assert "/admin/rules/audit" in js_response.text
+    assert "draftRecommendationPolicy" in js_response.text
+    assert "/admin/rules/recommendation-draft" in js_response.text
     assert "X-Audit-Reason" in js_response.text
     assert "summary-strip" in css_response.text
     assert "telemetry-controls" in css_response.text
     assert "audit-grid" in css_response.text
+    assert "audit-filter-grid" in css_response.text
+    assert "approval-grid" in css_response.text

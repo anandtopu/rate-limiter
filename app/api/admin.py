@@ -1,12 +1,12 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import ValidationError
 
 import app.api.depends as rate_limit_depends
 from app.ai.telemetry import telemetry_hub
 from app.api.security import require_admin_key
-from app.core.rules import RulesLoadError
+from app.core.rules import RulesApprovalError, RulesLoadError
 from app.observability.metrics import record_rule_reload_metric
 
 router = APIRouter(
@@ -93,6 +93,33 @@ async def get_rule_history():
     return get_rules_manager().history()
 
 
+@router.get("/rules/audit")
+async def get_rule_audit(
+    route: str | None = None,
+    actor: str | None = None,
+    action: str | None = None,
+    sensitivity: str | None = None,
+    since: float | None = None,
+    until: float | None = None,
+    limit: int = 100,
+):
+    validate_time_range(since=since, until=until)
+    return get_rules_manager().audit_log(
+        route=route,
+        actor=actor,
+        action=action,
+        sensitivity=sensitivity,
+        since=since,
+        until=until,
+        limit=clamp_limit(limit),
+    )
+
+
+@router.get("/rules/pending")
+async def get_pending_rule_updates(include_resolved: bool = False):
+    return get_rules_manager().pending_updates(include_resolved=include_resolved)
+
+
 @router.post("/rules/validate")
 async def validate_rules(payload: dict[str, Any]):
     try:
@@ -121,22 +148,101 @@ async def dry_run_rules(payload: dict[str, Any]):
         ) from exc
 
 
+@router.post("/rules/recommendation-draft")
+async def draft_rules_from_recommendations():
+    recommendations = telemetry_hub.generate_recommendations()
+    draft = get_rules_manager().draft_from_recommendations(recommendations)
+    return {
+        **draft,
+        "dry_run": get_rules_manager().dry_run(
+            draft["rules"],
+            events=telemetry_hub.recent_events(),
+            window_seconds=telemetry_hub.window_seconds,
+        ),
+    }
+
+
 @router.put("/rules")
-async def update_rules(payload: dict[str, Any], request: Request):
+async def update_rules(payload: dict[str, Any], request: Request, response: Response):
+    manager = get_rules_manager()
     try:
-        config = get_rules_manager().update_rules(
-            payload,
-            audit=audit_metadata(request),
-        )
+        config = manager.validate_rules(payload)
     except ValidationError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=exc.errors(),
         ) from exc
 
+    audit = audit_metadata(request)
+    sensitive_routes = manager.sensitive_routes_touched(config)
+    if sensitive_routes:
+        pending = manager.request_sensitive_update(
+            config,
+            sensitive_routes=sensitive_routes,
+            audit=audit,
+        )
+        response.status_code = status.HTTP_202_ACCEPTED
+        return {
+            "updated": False,
+            "pending_approval": True,
+            "approval_id": pending["id"],
+            "base_version": pending["base_version"],
+            "sensitive_routes": pending["sensitive_routes"],
+            "rules": pending["rules"],
+            "loaded_at": manager.loaded_at,
+            "version": manager.current_version(),
+            "store": manager.store.backend,
+        }
+
+    config = manager.apply_rules(config, action="update", audit=audit)
     return {
         "updated": True,
         "rules": config.model_dump(mode="json"),
+        "loaded_at": manager.loaded_at,
+        "version": manager.current_version(),
+        "store": manager.store.backend,
+    }
+
+
+@router.post("/rules/pending/{approval_id}/approve")
+async def approve_pending_rule_update(approval_id: str, request: Request):
+    try:
+        config, pending = get_rules_manager().approve_pending_update(
+            approval_id,
+            audit=audit_metadata(request),
+        )
+    except (RulesApprovalError, ValidationError) as exc:
+        detail = exc.errors() if isinstance(exc, ValidationError) else str(exc)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=detail,
+        ) from exc
+
+    return {
+        "approved": True,
+        "approval_id": pending["id"],
+        "rules": config.model_dump(mode="json"),
+        "loaded_at": get_rules_manager().loaded_at,
+        "version": get_rules_manager().current_version(),
+    }
+
+
+@router.post("/rules/pending/{approval_id}/reject")
+async def reject_pending_rule_update(approval_id: str, request: Request):
+    try:
+        pending = get_rules_manager().reject_pending_update(
+            approval_id,
+            audit=audit_metadata(request),
+        )
+    except RulesApprovalError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+
+    return {
+        "rejected": True,
+        "approval_id": pending["id"],
         "loaded_at": get_rules_manager().loaded_at,
         "version": get_rules_manager().current_version(),
     }

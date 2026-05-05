@@ -13,7 +13,7 @@ from app.api.admin import router as admin_router
 from app.api.security import require_admin_key
 from app.config import settings
 from app.core.limiter import RedisRateLimiter
-from app.core.rules import RulesManager
+from app.core.rules import RulesManager, SQLiteRuleStore
 from app.observability.logging import configure_logging
 from app.observability.metrics import metrics_registry
 from app.observability.telemetry_store import SQLiteTelemetryStore
@@ -38,7 +38,14 @@ async def lifespan(app: FastAPI):
     redis_client = redis.from_url(settings.redis_url)
     app.state.redis_client = redis_client
     depends.redis_limiter = RedisRateLimiter(redis_client)
-    depends.rules_manager = RulesManager(settings.rules_path)
+    if settings.rule_store_backend.lower() == "sqlite":
+        rule_store = SQLiteRuleStore(
+            settings.rule_store_db_path,
+            seed_config_path=settings.rules_path,
+        )
+        depends.rules_manager = RulesManager(settings.rules_path, store=rule_store)
+    else:
+        depends.rules_manager = RulesManager(settings.rules_path)
     yield
     # Shutdown
     await redis_client.aclose()

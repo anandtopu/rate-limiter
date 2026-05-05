@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 
 import app.api.depends as depends
-from app.core.rules import RulesManager
+from app.core.rules import RulesManager, SQLiteRuleStore
 
 ADMIN_HEADERS = {"X-Admin-Key": "dev-admin-key"}
 RUNTIME_DIR = Path("tmp-test-data")
@@ -15,6 +15,10 @@ def runtime_rules_path():
     path = RUNTIME_DIR / str(uuid4()) / "rules.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def runtime_rules_db_path(rules_path):
+    return rules_path.parent / "rules.sqlite3"
 
 
 def write_rules(path, capacity=5, rate=0.001):
@@ -27,6 +31,27 @@ def write_rules(path, capacity=5, rate=0.001):
                             "rate": rate,
                             "capacity": capacity,
                             "fail_mode": "open",
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def write_sensitive_rules(path, capacity=5, rate=0.001):
+    path.write_text(
+        json.dumps(
+            {
+                "routes": {
+                    "/api/accounts/{account_id}/data": {
+                        "global_limit": {
+                            "rate": rate,
+                            "capacity": capacity,
+                            "fail_mode": "open",
+                            "sensitivity": "sensitive",
+                            "owner": "accounts",
                         }
                     }
                 }
@@ -209,6 +234,256 @@ async def test_rule_update_changes_limit_behavior(client):
 
 
 @pytest.mark.asyncio
+async def test_sqlite_rule_store_persists_updates_without_rewriting_seed_json(client):
+    rules_path = runtime_rules_path()
+    write_rules(rules_path, capacity=5)
+    original_seed = json.loads(rules_path.read_text(encoding="utf-8"))
+    db_path = runtime_rules_db_path(rules_path)
+    depends.rules_manager = RulesManager(
+        str(rules_path),
+        store=SQLiteRuleStore(str(db_path), seed_config_path=str(rules_path)),
+    )
+
+    update_payload = {
+        "routes": {
+            "/api/data": {
+                "global_limit": {
+                    "rate": 0.001,
+                    "capacity": 1,
+                    "fail_mode": "open",
+                }
+            }
+        }
+    }
+
+    response = await client.put(
+        "/admin/rules",
+        headers=ADMIN_HEADERS,
+        json=update_payload,
+    )
+    assert response.status_code == 200
+    assert response.json()["store"] == "sqlite"
+    assert response.json()["version"] == 2
+    assert json.loads(rules_path.read_text(encoding="utf-8")) == original_seed
+
+    restarted_manager = RulesManager(
+        str(rules_path),
+        store=SQLiteRuleStore(str(db_path), seed_config_path=str(rules_path)),
+    )
+    snapshot = restarted_manager.snapshot()
+    assert snapshot["store"] == "sqlite"
+    assert snapshot["version"] == 2
+    assert snapshot["rules"]["routes"]["/api/data"]["global_limit"]["capacity"] == 1
+    assert [entry["action"] for entry in restarted_manager.history()["versions"]] == [
+        "initial",
+        "update",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_sqlite_rule_store_persists_pending_sensitive_updates(client):
+    rules_path = runtime_rules_path()
+    write_sensitive_rules(rules_path, capacity=5)
+    db_path = runtime_rules_db_path(rules_path)
+    depends.rules_manager = RulesManager(
+        str(rules_path),
+        store=SQLiteRuleStore(str(db_path), seed_config_path=str(rules_path)),
+    )
+
+    response = await client.put(
+        "/admin/rules",
+        headers={**ADMIN_HEADERS, "X-Audit-Actor": "alice@example.com"},
+        json={
+            "routes": {
+                "/api/accounts/{account_id}/data": {
+                    "global_limit": {
+                        "rate": 0.001,
+                        "capacity": 1,
+                        "fail_mode": "open",
+                        "sensitivity": "sensitive",
+                    }
+                }
+            }
+        },
+    )
+    assert response.status_code == 202
+    approval_id = response.json()["approval_id"]
+
+    restarted_manager = RulesManager(
+        str(rules_path),
+        store=SQLiteRuleStore(str(db_path), seed_config_path=str(rules_path)),
+    )
+    pending = restarted_manager.pending_updates()
+    assert pending["requests"][0]["id"] == approval_id
+    assert pending["requests"][0]["audit"]["actor"] == "alice@example.com"
+    assert restarted_manager.snapshot()["rules"]["routes"]["/api/accounts/{account_id}/data"][
+        "global_limit"
+    ]["capacity"] == 5
+
+
+@pytest.mark.asyncio
+async def test_sensitive_rule_update_is_saved_pending_approval(client):
+    rules_path = runtime_rules_path()
+    write_sensitive_rules(rules_path, capacity=5)
+    depends.rules_manager = RulesManager(str(rules_path))
+
+    update_payload = {
+        "routes": {
+            "/api/accounts/{account_id}/data": {
+                "global_limit": {
+                    "rate": 0.001,
+                    "capacity": 1,
+                    "fail_mode": "open",
+                    "sensitivity": "sensitive",
+                    "owner": "accounts",
+                }
+            }
+        }
+    }
+
+    response = await client.put(
+        "/admin/rules",
+        headers={
+            **ADMIN_HEADERS,
+            "X-Audit-Actor": "alice@example.com",
+            "X-Audit-Reason": "tighten account-data limit",
+        },
+        json=update_payload,
+    )
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["updated"] is False
+    assert body["pending_approval"] is True
+    assert body["version"] == 1
+    assert body["sensitive_routes"] == ["/api/accounts/{account_id}/data"]
+
+    snapshot = depends.rules_manager.snapshot()
+    assert snapshot["rules"]["routes"]["/api/accounts/{account_id}/data"]["global_limit"][
+        "capacity"
+    ] == 5
+
+    pending = (await client.get("/admin/rules/pending", headers=ADMIN_HEADERS)).json()
+    assert len(pending["requests"]) == 1
+    assert pending["requests"][0]["id"] == body["approval_id"]
+    assert pending["requests"][0]["audit"]["actor"] == "alice@example.com"
+
+
+@pytest.mark.asyncio
+async def test_sensitive_rule_approval_requires_second_admin_and_then_applies(client):
+    rules_path = runtime_rules_path()
+    write_sensitive_rules(rules_path, capacity=5)
+    depends.rules_manager = RulesManager(str(rules_path))
+
+    update_payload = {
+        "routes": {
+            "/api/accounts/{account_id}/data": {
+                "global_limit": {
+                    "rate": 0.001,
+                    "capacity": 1,
+                    "fail_mode": "open",
+                    "sensitivity": "sensitive",
+                    "owner": "accounts",
+                }
+            }
+        }
+    }
+    propose_response = await client.put(
+        "/admin/rules",
+        headers={**ADMIN_HEADERS, "X-Audit-Actor": "alice@example.com"},
+        json=update_payload,
+    )
+    approval_id = propose_response.json()["approval_id"]
+
+    same_actor_response = await client.post(
+        f"/admin/rules/pending/{approval_id}/approve",
+        headers={**ADMIN_HEADERS, "X-Audit-Actor": "alice@example.com"},
+    )
+    assert same_actor_response.status_code == 409
+
+    approval_response = await client.post(
+        f"/admin/rules/pending/{approval_id}/approve",
+        headers={
+            **ADMIN_HEADERS,
+            "X-Audit-Actor": "bob@example.com",
+            "X-Audit-Reason": "reviewed sensitive route change",
+        },
+    )
+    assert approval_response.status_code == 200
+    assert approval_response.json()["approved"] is True
+    assert approval_response.json()["version"] == 2
+
+    snapshot = depends.rules_manager.snapshot()
+    assert snapshot["rules"]["routes"]["/api/accounts/{account_id}/data"]["global_limit"][
+        "capacity"
+    ] == 1
+
+    pending = (await client.get("/admin/rules/pending", headers=ADMIN_HEADERS)).json()
+    assert pending["requests"] == []
+
+    resolved = (
+        await client.get(
+            "/admin/rules/pending",
+            headers=ADMIN_HEADERS,
+            params={"include_resolved": "true"},
+        )
+    ).json()
+    assert resolved["requests"][0]["status"] == "approved"
+    assert resolved["requests"][0]["approval_audit"]["actor"] == "bob@example.com"
+
+    history = (await client.get("/admin/rules/history", headers=ADMIN_HEADERS)).json()
+    assert history["versions"][-1]["action"] == "approve_sensitive_update"
+    assert history["versions"][-1]["audit"]["actor"] == "bob@example.com"
+
+
+@pytest.mark.asyncio
+async def test_sensitive_rule_pending_update_can_be_rejected(client):
+    rules_path = runtime_rules_path()
+    write_sensitive_rules(rules_path, capacity=5)
+    depends.rules_manager = RulesManager(str(rules_path))
+
+    propose_response = await client.put(
+        "/admin/rules",
+        headers={**ADMIN_HEADERS, "X-Audit-Actor": "alice@example.com"},
+        json={
+            "routes": {
+                "/api/accounts/{account_id}/data": {
+                    "global_limit": {
+                        "rate": 0.001,
+                        "capacity": 1,
+                        "fail_mode": "open",
+                        "sensitivity": "sensitive",
+                    }
+                }
+            }
+        },
+    )
+    approval_id = propose_response.json()["approval_id"]
+
+    reject_response = await client.post(
+        f"/admin/rules/pending/{approval_id}/reject",
+        headers={**ADMIN_HEADERS, "X-Audit-Actor": "carol@example.com"},
+    )
+    assert reject_response.status_code == 200
+    assert reject_response.json()["rejected"] is True
+
+    snapshot = depends.rules_manager.snapshot()
+    assert snapshot["rules"]["routes"]["/api/accounts/{account_id}/data"]["global_limit"][
+        "capacity"
+    ] == 5
+
+    resolved = (
+        await client.get(
+            "/admin/rules/pending",
+            headers=ADMIN_HEADERS,
+            params={"include_resolved": "true"},
+        )
+    ).json()
+    assert resolved["requests"][0]["status"] == "rejected"
+    assert resolved["requests"][0]["rejection_audit"]["actor"] == "carol@example.com"
+
+
+@pytest.mark.asyncio
 async def test_failed_rule_update_preserves_active_rules(client):
     rules_path = runtime_rules_path()
     write_rules(rules_path, capacity=2)
@@ -349,6 +624,82 @@ async def test_rule_history_and_rollback(client):
     assert rollback_audit["source"] == "rollback-cli"
     assert rollback_audit["reason"] == "restore previous free tier limits"
     assert rollback_audit["request_id"] == "audit-rollback-request"
+
+
+@pytest.mark.asyncio
+async def test_rule_audit_filters_history_by_metadata(client):
+    rules_path = runtime_rules_path()
+    write_sensitive_rules(rules_path, capacity=5)
+    depends.rules_manager = RulesManager(str(rules_path))
+
+    propose_response = await client.put(
+        "/admin/rules",
+        headers={**ADMIN_HEADERS, "X-Audit-Actor": "alice@example.com"},
+        json={
+            "routes": {
+                "/api/accounts/{account_id}/data": {
+                    "global_limit": {
+                        "rate": 0.001,
+                        "capacity": 1,
+                        "fail_mode": "open",
+                        "sensitivity": "sensitive",
+                    }
+                }
+            }
+        },
+    )
+    approval_id = propose_response.json()["approval_id"]
+
+    await client.post(
+        f"/admin/rules/pending/{approval_id}/approve",
+        headers={**ADMIN_HEADERS, "X-Audit-Actor": "bob@example.com"},
+    )
+
+    audit_response = await client.get(
+        "/admin/rules/audit",
+        headers=ADMIN_HEADERS,
+        params={
+            "route": "/api/accounts",
+            "actor": "bob",
+            "action": "approve_sensitive_update",
+            "sensitivity": "sensitive",
+            "limit": "5",
+        },
+    )
+
+    assert audit_response.status_code == 200
+    body = audit_response.json()
+    assert body["filters"]["route"] == "/api/accounts"
+    assert body["count"] == 1
+    entry = body["entries"][0]
+    assert entry["action"] == "approve_sensitive_update"
+    assert entry["audit"]["actor"] == "bob@example.com"
+    assert entry["changed_routes"] == [
+        {
+            "route": "/api/accounts/{account_id}/data",
+            "change": "changed",
+            "sensitivity": "sensitive",
+        }
+    ]
+
+    no_match_response = await client.get(
+        "/admin/rules/audit",
+        headers=ADMIN_HEADERS,
+        params={"sensitivity": "public"},
+    )
+    assert no_match_response.status_code == 200
+    assert no_match_response.json()["entries"] == []
+
+
+@pytest.mark.asyncio
+async def test_rule_audit_rejects_invalid_time_range(client):
+    response = await client.get(
+        "/admin/rules/audit",
+        headers=ADMIN_HEADERS,
+        params={"since": "20", "until": "10"},
+    )
+
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio

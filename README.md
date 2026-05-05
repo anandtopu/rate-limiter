@@ -1,6 +1,6 @@
 # Distributed Rate Limiter
 
-A production-inspired distributed rate limiter built with **FastAPI** and **Redis**. The project is intentionally compact: it is small enough to read in one sitting, but complete enough to demonstrate token-bucket enforcement, atomic Redis Lua evaluation, JSON-backed rules, response headers, and passive telemetry.
+A production-inspired distributed rate limiter built with **FastAPI** and **Redis**. The project is intentionally compact: it is small enough to read in one sitting, but complete enough to demonstrate token-bucket enforcement, atomic Redis Lua evaluation, durable rule management, response headers, and passive telemetry.
 
 This repository is being upgraded into a portfolio-ready "Rate Limiter Control Plane + Enforcement API." The current implementation focuses on the enforcement path and AI-oriented signals; the roadmap adds authenticated rule management, observability, and an interactive browser demo.
 
@@ -9,7 +9,7 @@ This repository is being upgraded into a portfolio-ready "Rate Limiter Control P
 - **Token Bucket Engine**: Continuous token regeneration tracked in Redis.
 - **Multiple Algorithms**: Rules can use `token_bucket` or `fixed_window`.
 - **Atomic Redis Evaluation**: Lua scripting keeps token updates race-safe across concurrent requests.
-- **JSON Rule Configuration**: Per-route global limits and identifier-specific overrides are loaded from `rules.json`.
+- **Rule Configuration**: Per-route global limits and identifier-specific overrides are loaded from `rules.json` by default, with an optional SQLite-backed rule store for durable demos.
 - **Rule Metadata**: Rules can carry route tier, owner, and sensitivity labels into validation, logs, and limiter traces.
 - **Templated Route Keys**: Parameterized FastAPI routes use their route template for rule lookup and telemetry.
 - **Rate Limit Headers**:
@@ -21,7 +21,7 @@ This repository is being upgraded into a portfolio-ready "Rate Limiter Control P
 - **Passive Telemetry**: In-memory signals capture recent allow/deny behavior and top offenders.
 - **Optional Persistent Telemetry**: `PERSIST_TELEMETRY=true` records rate-limit decisions to SQLite for restart-safe demo analytics.
 - **Recommendations Endpoint**: A lightweight recommendation layer summarizes recent traffic patterns without changing rules automatically.
-- **Admin Rule API**: `X-Admin-Key` protects rule inspect, validate, update, and reload endpoints.
+- **Admin Rule API**: `X-Admin-Key` protects rule inspect, validate, update, approval, and reload endpoints.
 - **Operational Endpoints**: `/health`, `/ready`, and `/metrics` expose process health, Redis readiness, and Prometheus-style counters.
 - **Docker Health Checks**: Compose marks Redis and the web app healthy only after Redis responds and `/ready` succeeds.
 - **Proxy Trust Policy**: `X-Forwarded-For` is ignored unless the direct peer is listed in `TRUSTED_PROXY_IPS`.
@@ -56,7 +56,7 @@ Core modules:
 - `app/main.py`: FastAPI app, routes, and lifecycle wiring.
 - `app/api/depends.py`: rate-limit dependency and response header handling.
 - `app/core/limiter.py`: Redis Lua token-bucket implementation.
-- `app/core/rules.py`: JSON rule loading and rule lookup.
+- `app/core/rules.py`: rule-store loading, history, approvals, and rule lookup.
 - `app/models/rules.py`: Pydantic rule models.
 - `app/ai/telemetry.py`: in-memory signals and recommendations.
 - `app/observability/telemetry_store.py`: optional SQLite persistence for rate-limit events.
@@ -66,7 +66,7 @@ Core modules:
 This project is production-inspired, not fully production-ready yet. The current tradeoffs are explicit:
 
 - **Telemetry persistence is optional**: in-memory signals stay as the fast path; SQLite persistence is best-effort and off by default.
-- **JSON-backed rules**: easy to inspect and backed by local version history, but still not a multi-user database or approval workflow.
+- **Rule storage is local**: JSON remains the readable default; optional SQLite persists active rules, history, and pending approvals, but this is still not a multi-user control-plane database.
 - **Demo admin key**: admin and AI endpoints are protected by `X-Admin-Key`, with a development default that should be overridden outside local demos.
 - **Fail-open by default**: good for availability demos, risky for sensitive endpoints; sensitive demo routes can opt into fail-closed.
 - **Identifier hashing defaults off**: API keys and IPs can be hashed in Redis keys and telemetry with `HASH_IDENTIFIERS=true`, but the default keeps demo behavior easy to inspect.
@@ -156,6 +156,7 @@ make security
 make sbom
 make compose-up
 make load-test
+make redis-outage-demo
 ```
 
 Without `make`, the equivalent checks are:
@@ -167,11 +168,27 @@ Without `make`, the equivalent checks are:
 .\.venv\Scripts\cyclonedx-py.exe requirements requirements.txt --of JSON --output-reproducible --output-file sbom.json
 docker compose up --build
 .\.venv\Scripts\python.exe scripts\load_test.py --base-url http://localhost:8001
+.\.venv\Scripts\python.exe scripts\redis_outage_demo.py --base-url http://localhost:8001
 ```
 
 ## Configuration
 
 Rules live in [rules.json](rules.json).
+
+By default, active rules, history, and pending approvals are stored beside `rules.json`:
+
+```powershell
+RULE_STORE_BACKEND=json
+RULES_PATH=rules.json
+```
+
+For a restart-safe local control-plane demo, switch to SQLite. The first run seeds the database from `RULES_PATH`; later admin updates persist to SQLite without rewriting the seed JSON file.
+
+```powershell
+RULE_STORE_BACKEND=sqlite
+RULE_STORE_DB_PATH=data/rules.sqlite3
+RULES_PATH=rules.json
+```
 
 ```json
 {
@@ -257,11 +274,22 @@ Available endpoints:
 - `GET /admin/rules`
 - `GET /admin/telemetry/persistent`
 - `GET /admin/rules/history`
+- `GET /admin/rules/audit`
+- `GET /admin/rules/pending`
 - `POST /admin/rules/validate`
 - `POST /admin/rules/dry-run`
+- `POST /admin/rules/recommendation-draft`
 - `PUT /admin/rules`
+- `POST /admin/rules/pending/{approval_id}/approve`
+- `POST /admin/rules/pending/{approval_id}/reject`
 - `POST /admin/rules/rollback/{version}`
 - `POST /admin/rules/reload`
+
+Changes that touch routes labeled with `sensitivity: "sensitive"` are saved as pending approvals instead of applying immediately. A second admin, identified by a different `X-Audit-Actor`, must approve the pending change before it updates the active rule store and rule history.
+
+The rule audit endpoint accepts optional `route`, `actor`, `action`, `sensitivity`, `since`, `until`, and `limit` query parameters for focused change review.
+
+The recommendation draft endpoint converts current AI recommendations into editable proposed rule JSON and returns a dry-run report. It never applies changes automatically.
 
 ## Portfolio Demo Walkthrough
 
@@ -303,6 +331,41 @@ for ($i = 1; $i -le 7; $i++) {
 }
 ```
 
+Run the benchmark script:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\load_test.py --base-url http://localhost:8001
+```
+
+Representative local Docker Compose output:
+
+```json
+{
+  "free-data": {
+    "requests": 12,
+    "limited": 7,
+    "errors": 0
+  },
+  "premium-data": {
+    "requests": 12,
+    "limited": 0,
+    "errors": 0
+  },
+  "limited-health": {
+    "requests": 14,
+    "limited": 4,
+    "errors": 0
+  },
+  "templated-account-data": {
+    "requests": 12,
+    "limited": 7,
+    "errors": 0
+  }
+}
+```
+
+This covers the default free rule, the premium override, the abusive fixed-window health route, and the templated `/api/accounts/{account_id}/data` route.
+
 View passive telemetry:
 
 ```bash
@@ -323,10 +386,24 @@ curl "http://localhost:8001/admin/telemetry/persistent?since=1777940000&limit=25
 
 For Docker demos, start the stack with `PERSIST_TELEMETRY=true` to enable SQLite-backed persisted telemetry inside the app container.
 
+Demonstrate Redis outage behavior without manually stopping services:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\redis_outage_demo.py --base-url http://localhost:8001
+```
+
+The script stops the Compose `redis` service, probes `/api/data` as the fail-open route and `/api/limited-health` as the fail-closed route, then starts Redis again. Use `--skip-stop` if Redis is already unavailable and you only want to run the probes.
+
 Generate recommendations:
 
 ```bash
 curl -X POST http://localhost:8001/ai/recommendations -H "X-Admin-Key: dev-admin-key"
+```
+
+Draft editable policy JSON from recommendations:
+
+```bash
+curl -X POST http://localhost:8001/admin/rules/recommendation-draft -H "X-Admin-Key: dev-admin-key"
 ```
 
 What to look for:
@@ -336,6 +413,8 @@ What to look for:
 - `X-RateLimit-Remaining` decreasing across requests.
 - `X-RateLimit-Algorithm` showing the active limiter strategy.
 - `Retry-After` on denied requests.
+- `/api/data` still returning `200` during Redis outage because it fails open.
+- `/api/limited-health` returning `429` during Redis outage because it fails closed.
 - Top offenders and route-level `429` ratios in `/ai/signals`.
 
 ## Upgrade Status
@@ -366,5 +445,12 @@ Completed in this upgrade pass:
 - Phase 21: trusted reverse-proxy policy for `X-Forwarded-For` client identity.
 - Phase 22: templated route keys for path-parameter routes.
 - Phase 23: route owner and sensitivity metadata in rule validation, demo rules, structured logs, and limiter traces.
+- Phase 24: sensitive-rule approval workflow with pending changes and second-admin approval.
+- Phase 25: optional SQLite-backed durable rule store while preserving the JSON default path.
+- Phase 26: dashboard pending approval panel with approve/reject actions and visible audit metadata.
+- Phase 27: filtered rule-change audit API and dashboard view for route, actor, action, sensitivity, and time range.
+- Phase 28: Redis outage demo script for fail-open and fail-closed behavior.
+- Phase 29: recommendation-to-dry-run flow that drafts editable policy JSON from AI suggestions.
+- Phase 30: documented load-test benchmark output for free, premium, abusive, and templated-route scenarios.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.

@@ -27,6 +27,8 @@ async def client(redis_client):
     telemetry_hub.reset()
     telemetry_hub.set_store(None)
     settings.hash_identifiers = False
+    settings.rule_store_backend = "json"
+    settings.rule_store_db_path = "data/rules.sqlite3"
     settings.trusted_proxy_ips = ""
     settings.expose_demo_dashboard = True
     settings.enable_tracing = False
@@ -42,6 +44,8 @@ async def client(redis_client):
         yield ac
 
     settings.hash_identifiers = False
+    settings.rule_store_backend = "json"
+    settings.rule_store_db_path = "data/rules.sqlite3"
     settings.trusted_proxy_ips = ""
     settings.expose_demo_dashboard = True
     settings.enable_tracing = False

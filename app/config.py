@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     # Local demo default; override ADMIN_API_KEY outside demos.
     admin_api_key: str = "dev-admin-key"
     rules_path: str = "rules.json"
+    rule_store_backend: str = "json"
+    rule_store_db_path: str = "data/rules.sqlite3"
     expose_demo_dashboard: bool = True
     hash_identifiers: bool = False
     trusted_proxy_ips: str = ""

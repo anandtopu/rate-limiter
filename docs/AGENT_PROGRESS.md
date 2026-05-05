@@ -18,6 +18,24 @@ Last updated: 2026-05-05
 - Docker access may require elevated permissions in this environment.
 - Ignore locked local scratch folders; `.dockerignore` and `.gitignore` exclude them.
 - Use `docker-compose` if `docker compose` is not available in the current shell.
+- `git status --short` may print `unable to access 'C:\Users\anand/.config/git/ignore': Permission denied`; this is a user-level ignore warning, not a repo change.
+
+## Resume Snapshot
+
+- Saved for resume on 2026-05-05.
+- Worktree was clean before this snapshot update.
+- The original portfolio upgrade is complete through Phase 30.
+- The forward backlog has been refreshed in [BACKLOG_STATUS.md](BACKLOG_STATUS.md) and [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
+- Latest known verification from this coding pass:
+  - `.\.venv\Scripts\ruff.exe check .` passed.
+  - `.\.venv\Scripts\pytest.exe -q` passed with `63 passed`.
+- Next agent should start with the P1 backlog item: coverage reporting in CI so test depth is visible alongside lint, security scan, and SBOM checks.
+- Recommended first implementation read:
+  - [app/core/rules.py](../app/core/rules.py)
+  - [app/api/admin.py](../app/api/admin.py)
+  - [app/models/rules.py](../app/models/rules.py)
+  - [app/static/demo.js](../app/static/demo.js)
+  - [tests/test_admin.py](../tests/test_admin.py)
 
 ## Completed Phases
 
@@ -47,6 +65,13 @@ Last updated: 2026-05-05
 | 21 | Done | Trusted reverse-proxy policy for `X-Forwarded-For` client identity. |
 | 22 | Done | Templated route keys for path-parameter routes. |
 | 23 | Done | Rule owner and sensitivity metadata for validation, demo rules, logs, and limiter traces. |
+| 24 | Done | Sensitive-rule approval workflow with pending changes and second-admin approval. |
+| 25 | Done | Optional SQLite-backed durable rule store while preserving the JSON default path. |
+| 26 | Done | Dashboard pending approval panel with approve/reject actions and audit metadata. |
+| 27 | Done | Filtered rule-change audit API and dashboard view for route, actor, action, sensitivity, and time range. |
+| 28 | Done | Redis outage demo script for fail-open and fail-closed behavior. |
+| 29 | Done | Recommendation-to-dry-run flow that drafts editable policy JSON from AI suggestions. |
+| 30 | Done | Documented load-test benchmark output for free, premium, abusive, and templated-route scenarios. |
 
 ## Verification Commands
 
@@ -59,6 +84,7 @@ docker-compose build web
 docker-compose run --rm --no-deps web sh -lc "python -m pip install -r requirements-dev.txt && pip-audit -r requirements.txt --cache-dir .pip-audit-cache && bandit -q -r app -c pyproject.toml && cyclonedx-py requirements requirements.txt --of JSON --output-reproducible --output-file /tmp/sbom.json && test -s /tmp/sbom.json"
 docker-compose run --rm --no-deps web pytest -q
 docker-compose up -d
+.\.venv\Scripts\python.exe scripts\redis_outage_demo.py --base-url http://localhost:8001
 ```
 
 ## Live Smoke Checks
@@ -68,13 +94,12 @@ curl.exe -s http://localhost:8001/ready
 curl.exe -s -i http://localhost:8001/api/data -H "X-API-Key: smoke"
 curl.exe -s -i http://localhost:8001/api/limited-health -H "X-API-Key: smoke"
 curl.exe -s http://localhost:8001/admin/rules/history -H "X-Admin-Key: dev-admin-key"
+curl.exe -s http://localhost:8001/admin/rules/pending -H "X-Admin-Key: dev-admin-key"
 curl.exe -s http://localhost:8001/admin/telemetry/persistent -H "X-Admin-Key: dev-admin-key"
 ```
 
 ## Next Recommended Work
 
-1. Implement sensitive-rule approval workflow for changes touching `sensitivity: "sensitive"` routes.
-2. Add a durable rule-store option backed by SQLite or Redis while preserving the JSON demo path.
-3. Extend the dashboard with pending rule approvals and a filterable rule-change audit view.
-4. Add a Redis outage demo scenario for fail-open and fail-closed behavior.
-5. Add recommendation-to-dry-run support so AI suggestions become editable proposed policy JSON.
+1. Add coverage reporting in CI so test depth is visible alongside lint, security scan, and SBOM checks.
+2. Add a sliding-window algorithm behind the existing per-rule algorithm selection.
+3. Add admin key rotation support or multiple named admin keys for local/demo environments.

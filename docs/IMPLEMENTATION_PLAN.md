@@ -255,20 +255,14 @@ Use FastAPI static files plus one lightweight HTML/CSS/JavaScript page:
 
 ### Original MVP Backlog
 
-The original MVP and follow-up backlog has been implemented through Phase 23. Completed work includes limiter correctness, admin APIs, dashboard, metrics, tracing, persistent telemetry, CI/security checks, rule history, policy dry runs, multiple algorithms, proxy trust, templated route keys, and rule metadata.
+The original MVP and follow-up backlog has been implemented through Phase 30. Completed work includes limiter correctness, admin APIs, dashboard, metrics, tracing, persistent telemetry, CI/security checks, rule history, policy dry runs, multiple algorithms, proxy trust, templated route keys, rule metadata, sensitive-rule approval workflow, optional SQLite-backed rule storage, pending-approval dashboard controls, a filtered rule-change audit view, a Redis outage demo script, recommendation-to-dry-run policy drafts, and documented load-test benchmark output.
 
 ### P0: Next Implementation Candidates
 
-- Add a sensitive-rule approval workflow: proposed changes touching `sensitivity: "sensitive"` routes should be saved as pending changes and require a second admin approval before apply.
-- Add a durable rule-store option backed by SQLite or Redis, while keeping `rules.json` as the simple demo/default path.
-- Add dashboard support for pending rule changes, including approve/reject actions and visible audit metadata.
-- Add a dedicated rule-change audit view that filters history by route, actor, action, sensitivity, and time range.
+- No P0 implementation candidates remain from the current queue.
 
 ### P1: Product And Demo Polish
 
-- Add a Redis outage demo mode or scripted scenario so reviewers can see fail-open and fail-closed behavior without manually breaking Redis.
-- Add a recommendation-to-dry-run flow that turns AI recommendations into editable proposed rule JSON without applying changes automatically.
-- Add benchmark output from `scripts/load_test.py` to documentation, covering free, premium, abusive, and templated-route scenarios.
 - Add coverage reporting in CI so test depth is visible alongside lint, security scan, and SBOM checks.
 
 ### P2: Advanced Platform Enhancements
