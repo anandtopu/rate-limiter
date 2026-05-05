@@ -38,6 +38,7 @@ Last updated: 2026-05-04
 | 12 | Done | CI dependency audit and static security scanning with vulnerable pins upgraded. |
 | 13 | Done | Rule history audit metadata for updates, reloads, and rollbacks. |
 | 14 | Done | Optional OpenTelemetry OTLP/HTTP exporter configuration. |
+| 15 | Done | Persisted telemetry summaries in the demo dashboard. |
 
 ## Verification Commands
 
@@ -63,7 +64,7 @@ curl.exe -s http://localhost:8001/admin/telemetry/persistent -H "X-Admin-Key: de
 
 ## Next Recommended Work
 
-1. Add richer persisted telemetry summaries in the dashboard.
-2. Add generated SBOM artifact in CI.
-3. Add UI controls for rule update audit metadata.
-4. Add a local collector compose profile for tracing demos.
+1. Add generated SBOM artifact in CI.
+2. Add UI controls for rule update audit metadata.
+3. Add a local collector compose profile for tracing demos.
+4. Add persistent telemetry time-range filters.

@@ -13,6 +13,7 @@ const els = {
   burstBtn: document.querySelector("#burstBtn"),
   refreshBtn: document.querySelector("#refreshBtn"),
   signalsBtn: document.querySelector("#signalsBtn"),
+  persistentTelemetryBtn: document.querySelector("#persistentTelemetryBtn"),
   recommendationsBtn: document.querySelector("#recommendationsBtn"),
   rulesBtn: document.querySelector("#rulesBtn"),
   historyBtn: document.querySelector("#historyBtn"),
@@ -28,6 +29,10 @@ const els = {
   timeline: document.querySelector("#timeline"),
   eventCount: document.querySelector("#eventCount"),
   signalsOutput: document.querySelector("#signalsOutput"),
+  persistedEventsValue: document.querySelector("#persistedEventsValue"),
+  persistedDeniedValue: document.querySelector("#persistedDeniedValue"),
+  persistedFailOpenValue: document.querySelector("#persistedFailOpenValue"),
+  persistentTelemetryOutput: document.querySelector("#persistentTelemetryOutput"),
   recommendationsOutput: document.querySelector("#recommendationsOutput"),
   rulesOutput: document.querySelector("#rulesOutput"),
   historyOutput: document.querySelector("#historyOutput"),
@@ -165,6 +170,29 @@ async function refreshSignals() {
   await loadAdminJson("/ai/signals", { method: "GET" }, els.signalsOutput);
 }
 
+function renderPersistentTelemetry(body) {
+  const summary = body.summary || {};
+  els.persistedEventsValue.textContent = summary.enabled ? summary.events ?? 0 : "Off";
+  els.persistedDeniedValue.textContent = summary.enabled ? summary.denied ?? 0 : "-";
+  els.persistedFailOpenValue.textContent = summary.enabled ? summary.redis_fail_open ?? 0 : "-";
+
+  els.persistentTelemetryOutput.textContent = pretty({
+    enabled: Boolean(summary.enabled),
+    path: summary.path,
+    persistent_errors: summary.persistent_errors ?? 0,
+    routes: body.analytics?.routes || [],
+    top_offenders: body.analytics?.top_offenders || [],
+    recent_events: body.events || [],
+  });
+}
+
+async function loadPersistentTelemetry() {
+  const response = await fetch("/admin/telemetry/persistent?limit=10", {
+    headers: requestHeaders(true),
+  });
+  renderPersistentTelemetry(await readJson(response));
+}
+
 async function runRecommendations() {
   await loadAdminJson("/ai/recommendations", { method: "POST" }, els.recommendationsOutput);
 }
@@ -205,7 +233,13 @@ async function dryRunRules() {
 }
 
 async function refreshAll() {
-  await Promise.allSettled([checkReady(), refreshSignals(), loadRules(), loadHistory()]);
+  await Promise.allSettled([
+    checkReady(),
+    refreshSignals(),
+    loadPersistentTelemetry(),
+    loadRules(),
+    loadHistory(),
+  ]);
 }
 
 async function checkReady() {
@@ -241,6 +275,10 @@ els.refreshBtn.addEventListener("click", () => {
 
 els.signalsBtn.addEventListener("click", () => {
   refreshSignals();
+});
+
+els.persistentTelemetryBtn.addEventListener("click", () => {
+  loadPersistentTelemetry();
 });
 
 els.recommendationsBtn.addEventListener("click", () => {

@@ -159,6 +159,9 @@ async def test_persistent_telemetry_admin_endpoint(client):
     body = response.json()
     assert body["summary"]["enabled"] is True
     assert body["summary"]["events"] >= 1
+    assert body["analytics"]["routes"][0]["route"] == "/api/data"
+    assert body["analytics"]["routes"][0]["requests"] >= 1
+    assert body["analytics"]["top_offenders"] == []
     assert body["events"][0]["route_path"] == "/api/data"
     assert body["events"][0]["identifier"] == "persisted_user"
 
@@ -173,6 +176,7 @@ async def test_persistent_telemetry_reports_disabled(client):
     assert response.status_code == 200
     body = response.json()
     assert body["summary"]["enabled"] is False
+    assert body["analytics"] == {"routes": [], "top_offenders": []}
     assert body["events"] == []
 
 
@@ -194,4 +198,5 @@ async def test_persistent_telemetry_failures_do_not_block_requests(client):
     assert body["summary"]["enabled"] is True
     assert body["summary"]["status"] == "unavailable"
     assert body["summary"]["persistent_errors"] >= 1
+    assert body["analytics"] == {"routes": [], "top_offenders": []}
     assert body["events"] == []

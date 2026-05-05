@@ -274,6 +274,12 @@ docker compose exec web pytest -q
 - Smoke checks:
   - `GET /ready`: Redis `ok`
   - `GET /api/data`: `200` with `X-RateLimit-Algorithm: token_bucket`
+  - `GET /demo`: includes the Persisted Telemetry panel.
+  - `GET /admin/telemetry/persistent`: returns disabled summary plus empty analytics when persistence is off.
+- Restarted the live stack with `docker-compose up -d`.
+- Smoke checks:
+  - `GET /ready`: Redis `ok`
+  - `GET /api/data`: `200` with `X-RateLimit-Algorithm: token_bucket`
   - `GET /demo`: `200`
 - Restarted the live stack with `docker-compose up -d`.
 - Smoke checks:
@@ -324,6 +330,28 @@ docker compose exec web pytest -q
 - Added optional `BatchSpanProcessor` plus OTLP/HTTP exporter wiring.
 - Kept OTLP export disabled unless both `ENABLE_TRACING=true` and `TRACE_OTLP_ENABLED=true`.
 - Added OTLP header parsing coverage.
+- Ran `.\.venv\Scripts\ruff.exe check .`.
+- Result: passed.
+- Ran `.\.venv\Scripts\pytest.exe -q`.
+- Result: `41 passed`.
+- Ran `.\.venv\Scripts\bandit.exe -q -r app -c pyproject.toml`.
+- Result: passed.
+- Ran `docker-compose build web`.
+- Result: passed.
+- Ran `docker-compose run --rm --no-deps web pytest -q`.
+- Result: `41 passed`.
+- Ran CI-style security checks in the Linux web container.
+- Result: `pip-audit` reported no known vulnerabilities and Bandit passed.
+
+## Phase 15 Verification: 2026-05-04
+
+- Added persisted telemetry analytics to the SQLite store:
+  - route request/denial/fail-open summaries
+  - top persisted offenders by denied request count
+- Extended `/admin/telemetry/persistent` to return analytics alongside summary and recent events.
+- Added a Persisted Telemetry dashboard panel with counters, route summaries, offenders, and recent events.
+- Kept disabled persistence rendering explicit and empty.
+- Added tests for the richer persistent telemetry response and dashboard hooks.
 - Ran `.\.venv\Scripts\ruff.exe check .`.
 - Result: passed.
 - Ran `.\.venv\Scripts\pytest.exe -q`.

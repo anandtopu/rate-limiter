@@ -23,7 +23,7 @@ This repository is being upgraded into a portfolio-ready "Rate Limiter Control P
 - **Operational Endpoints**: `/health`, `/ready`, and `/metrics` expose process health, Redis readiness, and Prometheus-style counters.
 - **Request Tracing**: `X-Request-ID` is accepted or generated and echoed on responses.
 - **Optional OpenTelemetry Tracing**: `ENABLE_TRACING=true` emits request and limiter spans, returns `X-Trace-ID`, and can export traces to an OTLP/HTTP collector.
-- **Interactive Demo Dashboard**: `/demo` provides browser controls for request simulation, live headers, signals, recommendations, and active rules.
+- **Interactive Demo Dashboard**: `/demo` provides browser controls for request simulation, live headers, signals, persisted telemetry summaries, recommendations, and active rules.
 
 ## Architecture
 
@@ -234,7 +234,7 @@ Narrow layout preview:
 
 ![Rate limiter demo dashboard narrow preview](docs/assets/demo-dashboard-mobile.png)
 
-Use the dashboard to send single requests, send a burst, compare free and premium clients, inspect rate-limit headers, load admin-only signals/rules/history, and dry-run proposed policy changes with `X-Admin-Key`.
+Use the dashboard to send single requests, send a burst, compare free and premium clients, inspect rate-limit headers, load admin-only signals/persisted telemetry/rules/history, and dry-run proposed policy changes with `X-Admin-Key`.
 
 Trigger the global `/api/data` limit:
 
@@ -298,5 +298,6 @@ Completed in this upgrade pass:
 - Phase 12: CI dependency audit and static security scanning, plus security-driven dependency upgrades.
 - Phase 13: richer rule history audit metadata for updates, reloads, and rollbacks.
 - Phase 14: optional OpenTelemetry OTLP/HTTP exporter configuration.
+- Phase 15: persisted telemetry summaries in the demo dashboard.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.

@@ -118,3 +118,50 @@ class SQLiteTelemetryStore:
             "denied": int(row["denied"] or 0),
             "redis_fail_open": int(row["redis_fail_open"] or 0),
         }
+
+    def analytics(self, limit: int = 5) -> dict[str, Any]:
+        with self._connect() as conn:
+            conn.row_factory = sqlite3.Row
+            routes = conn.execute(
+                """
+                SELECT
+                    route_path,
+                    COUNT(*) AS requests,
+                    SUM(CASE WHEN allowed = 0 THEN 1 ELSE 0 END) AS denied,
+                    SUM(CASE WHEN redis_fail_open = 1 THEN 1 ELSE 0 END) AS redis_fail_open
+                FROM rate_limit_events
+                GROUP BY route_path
+                ORDER BY requests DESC, route_path ASC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+            offenders = conn.execute(
+                """
+                SELECT
+                    identifier,
+                    COUNT(*) AS denied
+                FROM rate_limit_events
+                WHERE allowed = 0
+                GROUP BY identifier
+                ORDER BY denied DESC, identifier ASC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+
+        return {
+            "routes": [self._route_row(row) for row in routes],
+            "top_offenders": [dict(row) for row in offenders],
+        }
+
+    def _route_row(self, row: sqlite3.Row) -> dict[str, Any]:
+        requests = int(row["requests"] or 0)
+        denied = int(row["denied"] or 0)
+        return {
+            "route": row["route_path"],
+            "requests": requests,
+            "denied": denied,
+            "denied_pct": round((denied / requests) * 100, 2) if requests else 0.0,
+            "redis_fail_open": int(row["redis_fail_open"] or 0),
+        }

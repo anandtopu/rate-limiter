@@ -10,6 +10,7 @@ async def test_demo_dashboard_returns_html(client):
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
     assert "Rate Limiter Demo" in response.text
+    assert "Persisted Telemetry" in response.text
 
 
 @pytest.mark.asyncio
@@ -30,3 +31,5 @@ async def test_demo_static_assets_are_served(client):
     assert "text/css" in css_response.headers["content-type"]
     assert js_response.status_code == 200
     assert "javascript" in js_response.headers["content-type"]
+    assert "loadPersistentTelemetry" in js_response.text
+    assert "summary-strip" in css_response.text

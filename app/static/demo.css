@@ -232,7 +232,15 @@ input {
   margin: 0 0 12px;
 }
 
-.headers div {
+.summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.headers div,
+.summary-strip div {
   min-width: 0;
   padding: 8px;
   border: 1px solid #e3eae7;
@@ -350,7 +358,8 @@ pre {
 
   .toolbar,
   .grid,
-  .headers {
+  .headers,
+  .summary-strip {
     grid-template-columns: 1fr;
   }
 

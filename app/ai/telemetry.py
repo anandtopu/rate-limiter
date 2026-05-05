@@ -116,15 +116,20 @@ class TelemetryHub:
 
     def persistent_recent(self, limit: int = 100) -> dict[str, Any]:
         if not self.store:
-            return {"enabled": False, "events": []}
+            return {"enabled": False, "events": [], "analytics": self._empty_persistent_analytics()}
 
         try:
             events = self.store.recent(limit=limit)
+            analytics = self.store.analytics(limit=min(limit, 10))
         except Exception:
             self._persistent_errors += 1
             events = []
+            analytics = self._empty_persistent_analytics()
 
-        return {"enabled": True, "events": events}
+        return {"enabled": True, "events": events, "analytics": analytics}
+
+    def _empty_persistent_analytics(self) -> dict[str, list[Any]]:
+        return {"routes": [], "top_offenders": []}
 
     def snapshot(self, top_n: int = 10) -> dict[str, Any]:
         now = time.time()

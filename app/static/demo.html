@@ -87,6 +87,19 @@
 
         <article class="panel">
           <div class="panel-heading">
+            <h2>Persisted Telemetry</h2>
+            <button id="persistentTelemetryBtn" type="button" class="icon-button">Load</button>
+          </div>
+          <dl class="summary-strip">
+            <div><dt>Events</dt><dd id="persistedEventsValue">-</dd></div>
+            <div><dt>Denied</dt><dd id="persistedDeniedValue">-</dd></div>
+            <div><dt>Fail Open</dt><dd id="persistedFailOpenValue">-</dd></div>
+          </dl>
+          <pre id="persistentTelemetryOutput" class="json-output">{}</pre>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
             <h2>Recommendations</h2>
             <button id="recommendationsBtn" type="button" class="icon-button">Run</button>
           </div>
