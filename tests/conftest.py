@@ -42,6 +42,9 @@ async def client(redis_client):
     settings.persist_telemetry = False
     settings.ai_copilot_enabled = False
     settings.ai_copilot_provider = "fake"
+    settings.ai_copilot_endpoint = None
+    settings.ai_copilot_api_key = None
+    settings.ai_copilot_model = "policy-copilot"
     settings.ai_copilot_timeout_s = 10.0
     
     transport = ASGITransport(app=app)
@@ -64,5 +67,8 @@ async def client(redis_client):
     settings.persist_telemetry = False
     settings.ai_copilot_enabled = False
     settings.ai_copilot_provider = "fake"
+    settings.ai_copilot_endpoint = None
+    settings.ai_copilot_api_key = None
+    settings.ai_copilot_model = "policy-copilot"
     settings.ai_copilot_timeout_s = 10.0
     telemetry_hub.set_store(None)

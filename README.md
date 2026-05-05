@@ -26,7 +26,8 @@ This repository has been upgraded into a portfolio-ready "Rate Limiter Control P
 - **Advisor V2**: Deterministic tuning, abuse, reliability, and algorithm advisors return structured recommendations with confidence, rationale, proposed changes, expected impact, and safety notes.
 - **Replay Dry Run**: Policy dry-runs include a deterministic replay report with newly denied, newly allowed, route impact, identifier impact, and sensitive-route impact.
 - **Anomaly Detection**: Deterministic findings flag route spikes, retry loops, concentrated offenders, sensitive-route probing, and Redis outage exposure with evidence and suggested next actions.
-- **Optional Policy Copilot**: A disabled-by-default control-plane endpoint can explain AI signals and validate/dry-run generated rule JSON through a provider adapter, with a deterministic fake provider for local tests.
+- **Optional Policy Copilot**: A disabled-by-default control-plane endpoint can explain AI signals and validate/dry-run generated rule JSON through a provider adapter, with a deterministic fake provider for local tests and an opt-in OpenAI-compatible HTTP adapter.
+- **AI Evaluation Harness**: `scripts/ai_eval.py` runs repeatable labeled scenarios and reports recommendation/anomaly precision, false-positive notes, denied-legitimate estimates, abuse-reduction estimates, and policy-stability status.
 - **Admin Rule API**: `X-Admin-Key` protects rule inspect, validate, update, approval, and reload endpoints.
 - **Operational Endpoints**: `/health`, `/ready`, and `/metrics` expose process health, Redis readiness, and Prometheus-style counters.
 - **Docker Health Checks**: Compose marks Redis and the web app healthy only after Redis responds and `/ready` succeeds.
@@ -167,6 +168,7 @@ make security
 make sbom
 make compose-up
 make load-test
+make ai-eval
 make redis-outage-demo
 ```
 
@@ -180,6 +182,7 @@ Without `make`, the equivalent checks are:
 .\.venv\Scripts\cyclonedx-py.exe requirements requirements.txt --of JSON --output-reproducible --output-file sbom.json
 docker compose up --build
 .\.venv\Scripts\python.exe scripts\load_test.py --base-url http://localhost:8001
+.\.venv\Scripts\python.exe scripts\ai_eval.py
 .\.venv\Scripts\python.exe scripts\redis_outage_demo.py --base-url http://localhost:8001
 ```
 
@@ -244,7 +247,12 @@ Behavior today:
 - `TELEMETRY_DB_PATH=data/telemetry.sqlite3` controls the SQLite database path.
 - `TRUSTED_PROXY_IPS` is a comma-separated list of proxy IPs or CIDR ranges allowed to supply `X-Forwarded-For`.
 - `AI_COPILOT_ENABLED=false` keeps the policy copilot off unless explicitly enabled.
-- `AI_COPILOT_PROVIDER=fake` selects the deterministic local/test adapter. Other providers are rejected until an adapter is implemented.
+- `AI_COPILOT_PROVIDER=fake` selects the deterministic local/test adapter.
+- `AI_COPILOT_PROVIDER=openai_compatible` sends a chat-completions-style request to `AI_COPILOT_ENDPOINT`.
+- `AI_COPILOT_ENDPOINT` is required for the `openai_compatible` adapter.
+- `AI_COPILOT_API_KEY` optionally adds a bearer token for the provider request.
+- `AI_COPILOT_MODEL=policy-copilot` sets the model name sent to the provider.
+- `AI_COPILOT_TIMEOUT_S=10.0` limits provider request duration.
 
 ## Operations
 
@@ -322,7 +330,7 @@ Use `GET /admin/rules/export` to download a portable rule-policy envelope with s
 
 The recommendation draft endpoint converts current AI recommendations into editable proposed rule JSON and returns a dry-run report. It never applies changes automatically.
 
-The policy copilot endpoint is disabled by default. When enabled with `AI_COPILOT_ENABLED=true`, it returns explanation text and can validate plus dry-run generated rule JSON. It never applies changes directly; sensitive-route drafts still have to go through the existing approval flow.
+The policy copilot endpoint is disabled by default. When enabled with `AI_COPILOT_ENABLED=true`, it returns explanation text and can validate plus dry-run generated rule JSON. It never applies changes directly; sensitive-route drafts still have to go through the existing approval flow. Local tests use the deterministic `fake` provider; demos can opt into `openai_compatible` for providers that expose a chat completions JSON API.
 
 The generated OpenAPI schema includes examples for rule metadata, dry runs, imports, rollbacks, and persistent telemetry filters. Open `/docs` while the app is running to use those examples from Swagger UI.
 
@@ -401,6 +409,31 @@ Representative local Docker Compose output:
 
 This covers the default free rule, the premium override, the abusive fixed-window health route, and the templated `/api/accounts/{account_id}/data` route.
 
+Run the deterministic AI evaluation harness:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\ai_eval.py
+```
+
+Representative summary:
+
+```json
+{
+  "scenarios": 9,
+  "stable_scenarios": 9,
+  "policy_stability": "stable",
+  "recommendation_precision": 1.0,
+  "recommendation_recall": 1.0,
+  "anomaly_precision": 1.0,
+  "anomaly_recall": 1.0,
+  "false_positive_notes": [],
+  "denied_legitimate_estimate": 10,
+  "abuse_reduction_estimate": 20
+}
+```
+
+The mixed workload is now stable: concentrated abusive traffic suppresses broad route tuning, so the advisor prefers the abuse-specific recommendation.
+
 View passive telemetry:
 
 ```bash
@@ -446,6 +479,16 @@ Run the optional fake policy copilot:
 ```powershell
 $env:AI_COPILOT_ENABLED="true"
 curl.exe -X POST http://localhost:8001/admin/ai/policy-copilot -H "X-Admin-Key: dev-admin-key" -H "Content-Type: application/json" -d "{\"prompt\":\"Explain current limiter pressure.\"}"
+```
+
+Use an OpenAI-compatible provider only from the admin control plane:
+
+```powershell
+$env:AI_COPILOT_ENABLED="true"
+$env:AI_COPILOT_PROVIDER="openai_compatible"
+$env:AI_COPILOT_ENDPOINT="http://localhost:11434/v1/chat/completions"
+$env:AI_COPILOT_MODEL="policy-copilot"
+curl.exe -X POST http://localhost:8001/admin/ai/policy-copilot -H "X-Admin-Key: dev-admin-key" -H "Content-Type: application/json" -d "{\"prompt\":\"Explain current limiter pressure and suggest a draft only if the dry-run would be safe.\"}"
 ```
 
 Draft editable policy JSON from recommendations:
@@ -510,5 +553,7 @@ Completed in this upgrade pass:
 - AI-P2: replay-based counterfactual dry-runs with route and identifier impact summaries.
 - AI-P3: anomaly and abuse detection with admin API and dashboard visibility.
 - AI-P4: optional policy copilot with disabled-by-default config, provider adapter, fake local provider, validation, dry-run, and dashboard controls.
+- AI-P5: deterministic AI evaluation harness with labeled scenarios, precision/recall reporting, false-positive notes, and documented limitations.
+- AI-H2: OpenAI-compatible HTTP provider adapter for the policy copilot, preserving fake-provider tests and existing validation/dry-run safety boundaries.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.

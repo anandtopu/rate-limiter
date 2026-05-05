@@ -145,7 +145,7 @@ Primary capabilities:
 - Replay-based counterfactual dry-runs against recent or persisted traffic.
 - Anomaly detection for traffic spikes, retry loops, concentrated offenders, sensitive-route probing, and Redis outage exposure.
 - Optional LLM policy copilot for explanations and validated draft rules.
-- Repeatable evaluation scenarios and research reports.
+- Repeatable evaluation scenarios and research reports with precision/recall, false-positive notes, denied-legitimate estimates, abuse-reduction estimates, and stated limitations.
 
 The detailed backlog is maintained in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md).
 

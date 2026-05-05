@@ -36,13 +36,36 @@ def _legacy_recommendation(
     }
 
 
+def _routes_dominated_by_abuse(feature_summary: dict[str, Any]) -> set[str]:
+    route_denials = {
+        route["route"]: int(route.get("denied") or 0)
+        for route in feature_summary.get("routes", [])
+    }
+    dominated_routes = set()
+    for pair in feature_summary.get("route_identifiers", []):
+        route = pair["route"]
+        denied = int(pair.get("denied") or 0)
+        requests = int(pair.get("requests") or 0)
+        denial_ratio = float(pair.get("denial_ratio") or 0)
+        route_denied = route_denials.get(route, 0)
+        if requests < 5 or denied < 3 or denial_ratio < 0.5 or route_denied <= 0:
+            continue
+        if denied / route_denied >= 0.6:
+            dominated_routes.add(route)
+
+    return dominated_routes
+
+
 def tuning_advisor(feature_summary: dict[str, Any]) -> list[dict[str, Any]]:
     recommendations = []
+    abuse_dominated_routes = _routes_dominated_by_abuse(feature_summary)
     for route in feature_summary.get("routes", []):
         requests = int(route.get("requests") or 0)
         denied = int(route.get("denied") or 0)
         denial_ratio = float(route.get("denial_ratio") or 0)
         if requests < 20 or denial_ratio < 0.15:
+            continue
+        if route["route"] in abuse_dominated_routes:
             continue
 
         multiplier = 2.0 if denial_ratio >= 0.3 else 1.5

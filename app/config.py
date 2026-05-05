@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     telemetry_db_path: str = "data/telemetry.sqlite3"
     ai_copilot_enabled: bool = False
     ai_copilot_provider: str = "fake"
+    ai_copilot_endpoint: str | None = None
+    ai_copilot_api_key: str | None = None
+    ai_copilot_model: str = "policy-copilot"
     ai_copilot_timeout_s: float = 10.0
+
 
 settings = Settings()

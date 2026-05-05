@@ -19,7 +19,7 @@ The application already has the foundations needed for AI-assisted rate-limit tu
 - Recommendation-to-draft flow at `POST /admin/rules/recommendation-draft`.
 - Dashboard panels for signals, persisted telemetry, recommendations, anomalies, policy copilot, dry runs, rule history, audit, and approvals.
 
-The current AI layer is deterministic and control-plane only. It extracts telemetry features, produces advisor recommendations, replays policy drafts, detects anomalies, and can run an optional fake policy copilot for local explanation and draft-validation workflows.
+The current AI layer is control-plane only. It extracts telemetry features, produces advisor recommendations, replays policy drafts, detects anomalies, and can run an optional policy copilot for local explanation and draft-validation workflows. The copilot defaults to a deterministic fake adapter for tests and can opt into an OpenAI-compatible HTTP adapter for demos.
 
 ## Design Principles
 
@@ -181,9 +181,17 @@ Acceptance criteria:
 - LLM output cannot directly mutate active rules.
 - Invalid LLM-generated JSON is reported safely.
 
+Implemented result:
+
+- `POST /admin/ai/policy-copilot` is disabled by default and remains outside the request enforcement path.
+- The `fake` provider supports deterministic local tests and draft-validation workflows.
+- The `openai_compatible` provider posts chat-completions-style JSON to `AI_COPILOT_ENDPOINT`, adds `AI_COPILOT_API_KEY` as an optional bearer token, and parses provider JSON into explanation text plus optional rule JSON.
+- Provider runtime failures return `502`; disabled or missing provider configuration returns `503`.
+- Any returned rule JSON still goes through existing validation and dry-run before being shown to the admin.
+
 ### AI-P5: Research Evaluation Harness
 
-Status: Next.
+Status: Done.
 
 Goal: make AI feature quality measurable and repeatable.
 
@@ -206,6 +214,12 @@ Acceptance criteria:
 - Running the evaluation script produces deterministic scenario output.
 - Advisor regressions are visible in tests or generated reports.
 - Documentation states the limits of the research results honestly.
+
+Implemented result:
+
+- `scripts/ai_eval.py` runs labeled synthetic scenarios for normal free traffic, premium bursts, abusive identifiers, retry loops, route spikes, sensitive-route probing, Redis outage exposure, fixed-window pressure, and mixed workloads.
+- The report includes recommendation/anomaly precision and recall, false-positive notes, denied-legitimate estimates, abuse-reduction estimates, policy-stability status, and limitations.
+- Representative output currently reports `recommendation_precision: 1.0`, `recommendation_recall: 1.0`, `anomaly_precision: 1.0`, `anomaly_recall: 1.0`, and `policy_stability: "stable"` after advisor hardening suppresses route-wide tuning when denials are dominated by concentrated abuse.
 
 ## Documentation Tasks
 

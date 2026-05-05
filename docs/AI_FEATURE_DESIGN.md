@@ -129,6 +129,7 @@ Advisor output should use a common schema:
 - Add API tests for recommendation schema compatibility.
 - Add dry-run replay tests with deterministic event sequences.
 - Add fake LLM adapter tests when copilot work starts.
+- Add provider adapter tests with mocked HTTP responses so local tests never require network or credentials.
 - Extend load-test/eval scripts for repeatable research scenarios.
 
 ## Rollout Strategy
@@ -137,5 +138,5 @@ Advisor output should use a common schema:
 2. Introduce advisor v2 while preserving old recommendation fields where useful.
 3. Add replay dry-run and dashboard summaries.
 4. Add anomaly APIs and scenario tests. (Done in AI-P3.)
-5. Add optional LLM copilot with fake adapter tests. (Done in AI-P4.)
-6. Publish evaluation results and limitations.
+5. Add optional LLM copilot with fake adapter tests. (Done in AI-P4; OpenAI-compatible HTTP adapter added in AI-H2.)
+6. Publish evaluation results and limitations. (Done in AI-P5.)

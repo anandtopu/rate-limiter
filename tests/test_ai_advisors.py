@@ -56,6 +56,21 @@ def test_tuning_advisor_returns_structured_scale_recommendation():
     assert tuning["recommendation"]["action"] == "review_limits"
 
 
+def test_tuning_advisor_suppresses_route_tuning_when_abuse_dominates_pressure():
+    recommendations = generate_advisor_recommendations(
+        [
+            *[event(identifier=f"normal_user_{index}", allowed=True) for index in range(10)],
+            *[event(identifier="abusive_user", allowed=index < 3) for index in range(10)],
+        ],
+        generated_at=123,
+    )
+
+    recommendation_types = {item["type"] for item in recommendations["items"]}
+
+    assert "abuse" in recommendation_types
+    assert "tuning" not in recommendation_types
+
+
 def test_abuse_advisor_flags_concentrated_identifier_pressure():
     feature_summary = generate_advisor_recommendations(
         [

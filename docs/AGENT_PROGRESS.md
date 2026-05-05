@@ -28,9 +28,10 @@ Last updated: 2026-05-05
 - The forward backlog has been refreshed as an AI research upgrade in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md), [BACKLOG_STATUS.md](BACKLOG_STATUS.md), and [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 - Latest known verification from this coding pass:
   - `.\.venv\Scripts\ruff.exe check .` passed.
-  - `.\.venv\Scripts\pytest.exe -q` passed with `98 passed`.
-  - `.\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml` passed with `98 passed`, `83%` total coverage, and `coverage.xml` generated.
-- Next agent should start with AI-P5: research evaluation harness.
+  - `.\.venv\Scripts\pytest.exe -q` passed with `111 passed`.
+  - `.\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml` passed with `111 passed`, `84%` total coverage, and `coverage.xml` generated.
+  - `.\.venv\Scripts\python.exe scripts\ai_eval.py` passed with 9 scenarios, 9 stable scenarios, recommendation precision `1.0`, recommendation recall `1.0`, anomaly precision `1.0`, and anomaly recall `1.0`.
+- The AI research queue is complete through AI-P5.
 - Recommended first implementation read:
   - [app/core/rules.py](../app/core/rules.py)
   - [app/api/admin.py](../app/api/admin.py)
@@ -83,6 +84,9 @@ Last updated: 2026-05-05
 | AI-P2 | Done | Replay-based counterfactual dry-runs with route and identifier impact summaries. |
 | AI-P3 | Done | Deterministic anomaly detection for route spikes, retry loops, concentrated offenders, sensitive-route probing, and Redis outage exposure. |
 | AI-P4 | Done | Optional policy copilot with disabled-by-default config, fake provider, safe validation, dry-run, and dashboard controls. |
+| AI-P5 | Done | Deterministic research evaluation harness with labeled scenarios, precision/recall metrics, false-positive notes, and documented limitations. |
+| AI-H1 | Done | Advisor hardening suppresses broad tuning recommendations when denials are dominated by concentrated abuse. |
+| AI-H2 | Done | OpenAI-compatible HTTP adapter for the policy copilot with provider errors isolated from config errors and fake-provider tests preserved. |
 
 ## Verification Commands
 
@@ -90,6 +94,7 @@ Last updated: 2026-05-05
 .\.venv\Scripts\ruff.exe check .
 .\.venv\Scripts\pytest.exe -q
 .\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml
+.\.venv\Scripts\python.exe scripts\ai_eval.py
 .\.venv\Scripts\bandit.exe -q -r app -c pyproject.toml
 .\.venv\Scripts\cyclonedx-py.exe requirements requirements.txt --of JSON --output-reproducible --output-file sbom.json
 docker-compose build web
@@ -112,7 +117,7 @@ curl.exe -s http://localhost:8001/admin/telemetry/persistent -H "X-Admin-Key: de
 
 ## Next Recommended Work
 
-1. Implement AI-P5 research evaluation harness:
-   - add repeatable normal, bursty, abusive, retry-loop, sensitive-probing, Redis-outage, and mixed scenarios;
-   - save expected anomaly/recommendation labels;
-   - report precision, false-positive notes, denied-legitimate estimates, abuse-reduction estimates, and policy stability.
+No queued AI backlog items remain. Candidate follow-ups:
+
+1. Add live end-to-end evaluation that compares `scripts/ai_eval.py` synthetic results with Docker/Redis traffic captures.
+2. Add persisted-telemetry-backed evaluation windows so research reports can replay real demo runs.

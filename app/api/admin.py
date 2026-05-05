@@ -7,6 +7,7 @@ import app.api.depends as rate_limit_depends
 from app.ai.copilot import (
     SAFETY_CONSTRAINTS,
     CopilotConfigurationError,
+    CopilotProviderError,
     PolicyCopilotRequest,
     build_copilot_input,
     get_policy_copilot_adapter,
@@ -304,6 +305,10 @@ async def policy_copilot(
             enabled=settings.ai_copilot_enabled,
             provider=settings.ai_copilot_provider,
             proposed_rules=payload.proposed_rules,
+            endpoint=settings.ai_copilot_endpoint,
+            api_key=settings.ai_copilot_api_key,
+            model=settings.ai_copilot_model,
+            timeout_s=settings.ai_copilot_timeout_s,
         )
     except CopilotConfigurationError as exc:
         raise HTTPException(
@@ -320,7 +325,13 @@ async def policy_copilot(
         recommendations=recommendations,
         anomalies=anomalies,
     )
-    result = adapter.generate(copilot_input)
+    try:
+        result = adapter.generate(copilot_input)
+    except CopilotProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
 
     validation: dict[str, Any] = {
         "valid": None,

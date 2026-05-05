@@ -1,6 +1,9 @@
+import json
 from typing import Any, Protocol
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 SAFETY_CONSTRAINTS = [
     "The copilot is control-plane only and cannot apply active rules.",
@@ -41,6 +44,10 @@ class CopilotConfigurationError(ValueError):
     pass
 
 
+class CopilotProviderError(ValueError):
+    pass
+
+
 class FakePolicyCopilotAdapter:
     provider = "fake"
 
@@ -66,18 +73,174 @@ class FakePolicyCopilotAdapter:
         )
 
 
+class OpenAICompatiblePolicyCopilotAdapter:
+    provider = "openai_compatible"
+
+    def __init__(
+        self,
+        *,
+        endpoint: str,
+        api_key: str | None,
+        model: str,
+        timeout_s: float,
+    ):
+        self.endpoint = endpoint
+        self.api_key = api_key
+        self.model = model
+        self.timeout_s = timeout_s
+
+    def generate(self, copilot_input: PolicyCopilotInput) -> PolicyCopilotResult:
+        request_payload = {
+            "model": self.model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a rate-limit policy copilot. Return JSON only with "
+                        "keys explanation, proposed_rules, and warnings. proposed_rules "
+                        "must be a complete rule policy object or null. Never claim a "
+                        "rule was applied; this system only validates and dry-runs drafts."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        copilot_input.model_dump(mode="json"),
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    ),
+                },
+            ],
+            "temperature": 0,
+            "response_format": {"type": "json_object"},
+        }
+        headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        request = Request(
+            self.endpoint,
+            data=json.dumps(request_payload).encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+
+        try:
+            with urlopen(request, timeout=self.timeout_s) as response:
+                raw_body = response.read()
+        except HTTPError as exc:
+            raise CopilotProviderError(
+                f"AI policy copilot provider request failed with HTTP {exc.code}"
+            ) from exc
+        except (OSError, TimeoutError, URLError) as exc:
+            raise CopilotProviderError(
+                f"AI policy copilot provider request failed: {exc}"
+            ) from exc
+
+        try:
+            provider_response = json.loads(raw_body.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise CopilotProviderError(
+                "AI policy copilot provider returned invalid JSON"
+            ) from exc
+
+        result_payload = _extract_result_payload(provider_response)
+        try:
+            return PolicyCopilotResult.model_validate(result_payload)
+        except ValidationError as exc:
+            raise CopilotProviderError(
+                "AI policy copilot provider returned an invalid result shape"
+            ) from exc
+
+
+def _extract_result_payload(provider_response: Any) -> dict[str, Any]:
+    if not isinstance(provider_response, dict):
+        raise CopilotProviderError(
+            "AI policy copilot provider response must be a JSON object"
+        )
+
+    if "explanation" in provider_response:
+        return provider_response
+
+    choices = provider_response.get("choices")
+    if isinstance(choices, list) and choices:
+        first_choice = choices[0]
+        if isinstance(first_choice, dict):
+            message = first_choice.get("message")
+            if isinstance(message, dict):
+                return _parse_result_content(message.get("content"))
+            return _parse_result_content(first_choice.get("text"))
+
+    if "output_text" in provider_response:
+        return _parse_result_content(provider_response["output_text"])
+    if "content" in provider_response:
+        return _parse_result_content(provider_response["content"])
+
+    raise CopilotProviderError(
+        "AI policy copilot provider response did not include a copilot result"
+    )
+
+
+def _parse_result_content(content: Any) -> dict[str, Any]:
+    if isinstance(content, dict):
+        return content
+    if not isinstance(content, str):
+        raise CopilotProviderError(
+            "AI policy copilot provider response did not include JSON content"
+        )
+
+    cleaned = content.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.removeprefix("```json").removeprefix("```").strip()
+        cleaned = cleaned.removesuffix("```").strip()
+
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        raise CopilotProviderError(
+            "AI policy copilot provider returned non-JSON content"
+        ) from exc
+
+    if not isinstance(parsed, dict):
+        raise CopilotProviderError(
+            "AI policy copilot provider result content must be a JSON object"
+        )
+    return parsed
+
+
 def get_policy_copilot_adapter(
     *,
     enabled: bool,
     provider: str,
     proposed_rules: dict[str, Any] | None = None,
+    endpoint: str | None = None,
+    api_key: str | None = None,
+    model: str = "policy-copilot",
+    timeout_s: float = 10.0,
 ) -> PolicyCopilotAdapter:
     if not enabled:
         raise CopilotConfigurationError("AI policy copilot is disabled")
 
-    normalized_provider = provider.strip().lower()
+    normalized_provider = provider.strip().lower().replace("-", "_")
     if normalized_provider == "fake":
         return FakePolicyCopilotAdapter(proposed_rules=proposed_rules)
+    if normalized_provider == "openai_compatible":
+        normalized_endpoint = endpoint.strip() if endpoint else ""
+        if not normalized_endpoint:
+            raise CopilotConfigurationError(
+                "AI policy copilot provider requires AI_COPILOT_ENDPOINT"
+            )
+        normalized_model = model.strip() if model else "policy-copilot"
+        if timeout_s <= 0:
+            raise CopilotConfigurationError(
+                "AI policy copilot timeout must be greater than zero"
+            )
+        return OpenAICompatiblePolicyCopilotAdapter(
+            endpoint=normalized_endpoint,
+            api_key=api_key.strip() if api_key else None,
+            model=normalized_model,
+            timeout_s=timeout_s,
+        )
 
     raise CopilotConfigurationError(
         f"AI policy copilot provider is not configured: {provider}"

@@ -267,7 +267,7 @@ The original MVP and follow-up backlog has been implemented through Phase 35. Co
 
 ### P2: Advanced Platform Enhancements
 
-- AI-P5: research evaluation harness.
+- P2 AI research queue is complete through AI-P5.
 
 ## 9. AI Research Upgrade
 
@@ -295,7 +295,7 @@ This keeps runtime behavior deterministic and gives every AI proposal the same s
 - `app/ai/advisors.py`: deterministic advisor engines for tuning, abuse, reliability, and algorithm selection.
 - `app/ai/simulation.py`: replay-based counterfactual policy simulator.
 - `app/ai/anomalies.py`: deterministic anomaly detectors for spikes, retry loops, concentrated offenders, sensitive-route probing, and Redis outage exposure.
-- `app/ai/copilot.py`: optional LLM adapter and policy-draft workflow, disabled by default.
+- `app/ai/copilot.py`: optional LLM adapter and policy-draft workflow, disabled by default, with fake and OpenAI-compatible HTTP providers.
 - `scripts/ai_eval.py`: repeatable research evaluation scenarios and reports.
 
 ### Implementation Sequence
@@ -307,6 +307,7 @@ This keeps runtime behavior deterministic and gives every AI proposal the same s
 5. Add anomaly detection and dashboard visibility.
 6. Add optional LLM copilot behind explicit configuration.
 7. Add evaluation scenarios and document research results.
+8. Harden the copilot provider boundary with a real HTTP adapter while preserving offline fake-provider tests.
 
 ### Safety Requirements
 
@@ -316,6 +317,7 @@ This keeps runtime behavior deterministic and gives every AI proposal the same s
 - Recommendations must include confidence, rationale, signals, expected impact, and safety notes.
 - LLM prompts must avoid raw identifiers when `HASH_IDENTIFIERS=true`.
 - Local tests must run without network or model-provider credentials.
+- Provider calls must stay in admin control-plane endpoints and return provider failures without affecting enforcement traffic.
 
 ## 10. Proposed Milestones
 

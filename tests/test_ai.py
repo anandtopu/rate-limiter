@@ -69,10 +69,12 @@ async def test_ai_signals_use_route_templates_for_path_parameters(client):
 @pytest.mark.asyncio
 async def test_recommendation_draft_turns_tuning_recommendation_into_dry_run_policy(client):
     admin_headers = {"X-Admin-Key": "dev-admin-key"}
-    headers = {"X-API-Key": "recommendation_draft_user"}
 
-    for _ in range(25):
-        await client.get("/api/data", headers=headers)
+    for index in range(25):
+        await client.get(
+            "/api/data",
+            headers={"X-API-Key": f"recommendation_draft_user_{index % 4}"},
+        )
 
     response = await client.post("/admin/rules/recommendation-draft", headers=admin_headers)
 
