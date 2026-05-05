@@ -37,6 +37,16 @@
         "description": "Rate-limited health-style demo route",
         "tier": "platform"
       }
+    },
+    "/api/accounts/{account_id}/data": {
+      "global_limit": {
+        "rate": 1.0,
+        "capacity": 5,
+        "algorithm": "token_bucket",
+        "fail_mode": "open",
+        "description": "Templated account data demo route",
+        "tier": "free"
+      }
     }
   }
 }

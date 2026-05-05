@@ -137,6 +137,11 @@ async def limited_health_check():
 async def get_data():
     return {"data": "Protected resource"}
 
+
+@app.get("/api/accounts/{account_id}/data", dependencies=[Depends(depends.rate_limit)])
+async def get_account_data(account_id: str):
+    return {"account_id": account_id, "data": "Account-scoped protected resource"}
+
 @app.get("/ai/signals", dependencies=[Depends(require_admin_key)])
 async def ai_signals():
     return telemetry_hub.snapshot()

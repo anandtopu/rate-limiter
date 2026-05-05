@@ -10,6 +10,7 @@ This repository is being upgraded into a portfolio-ready "Rate Limiter Control P
 - **Multiple Algorithms**: Rules can use `token_bucket` or `fixed_window`.
 - **Atomic Redis Evaluation**: Lua scripting keeps token updates race-safe across concurrent requests.
 - **JSON Rule Configuration**: Per-route global limits and identifier-specific overrides are loaded from `rules.json`.
+- **Templated Route Keys**: Parameterized FastAPI routes use their route template for rule lookup and telemetry.
 - **Rate Limit Headers**:
   - `X-RateLimit-Limit`
   - `X-RateLimit-Remaining`
@@ -21,6 +22,8 @@ This repository is being upgraded into a portfolio-ready "Rate Limiter Control P
 - **Recommendations Endpoint**: A lightweight recommendation layer summarizes recent traffic patterns without changing rules automatically.
 - **Admin Rule API**: `X-Admin-Key` protects rule inspect, validate, update, and reload endpoints.
 - **Operational Endpoints**: `/health`, `/ready`, and `/metrics` expose process health, Redis readiness, and Prometheus-style counters.
+- **Docker Health Checks**: Compose marks Redis and the web app healthy only after Redis responds and `/ready` succeeds.
+- **Proxy Trust Policy**: `X-Forwarded-For` is ignored unless the direct peer is listed in `TRUSTED_PROXY_IPS`.
 - **Request Tracing**: `X-Request-ID` is accepted or generated and echoed on responses.
 - **Optional OpenTelemetry Tracing**: `ENABLE_TRACING=true` emits request and limiter spans, returns `X-Trace-ID`, and can export traces to an OTLP/HTTP collector.
 - **Interactive Demo Dashboard**: `/demo` provides browser controls for request simulation, live headers, signals, persisted telemetry summaries, recommendations, and active rules.
@@ -87,6 +90,8 @@ Docker Compose starts two services:
 - `web`: FastAPI app at `http://localhost:8001`
 - `redis`: Redis at `localhost:6378`
 - `otel-collector`: optional OpenTelemetry collector, enabled with the `tracing` profile
+
+Compose health checks wait for Redis readiness and then verify the web app through `/ready`.
 
 ```bash
 docker compose up --build
@@ -195,8 +200,10 @@ Behavior today:
 - `/health` is not rate-limited.
 - `/api/data` uses `token_bucket` by default.
 - `/api/limited-health` uses `fixed_window` for demo traffic.
+- `/api/accounts/{account_id}/data` demonstrates templated route matching for path parameters.
 - `PERSIST_TELEMETRY=true` enables SQLite event persistence.
 - `TELEMETRY_DB_PATH=data/telemetry.sqlite3` controls the SQLite database path.
+- `TRUSTED_PROXY_IPS` is a comma-separated list of proxy IPs or CIDR ranges allowed to supply `X-Forwarded-For`.
 
 ## Operations
 
@@ -208,6 +215,18 @@ Behavior today:
 - `TRACE_OTLP_ENABLED=true`: exports spans to an OTLP/HTTP collector when tracing is enabled.
 - `TRACE_OTLP_ENDPOINT`: optional trace endpoint such as `http://localhost:4318/v1/traces` for local Python with an external collector, `http://localhost:14318/v1/traces` for local Python using the Compose collector, or `http://otel-collector:4318/v1/traces` for Docker Compose.
 - `TRACE_OTLP_HEADERS`: optional comma-separated OTLP headers, such as `authorization=Bearer token,x-tenant=demo`.
+
+## Proxy Trust
+
+By default, rate-limit identity uses `X-API-Key` when present and otherwise falls back to the direct client socket IP. The app deliberately ignores `X-Forwarded-For` unless the direct peer is explicitly trusted.
+
+Set `TRUSTED_PROXY_IPS` only to reverse proxies you control:
+
+```bash
+TRUSTED_PROXY_IPS=10.0.0.10,10.0.1.0/24
+```
+
+When the direct peer matches that allowlist, the first valid IP in `X-Forwarded-For` is used as the anonymous client identity. Do not set this to broad public ranges; untrusted clients can spoof this header.
 
 ## Admin API
 
@@ -333,5 +352,8 @@ Completed in this upgrade pass:
 - Phase 17: dashboard controls for audited rule updates, reloads, and rollbacks.
 - Phase 18: local OpenTelemetry collector compose profile for tracing demos.
 - Phase 19: persistent telemetry time-range filters in the API and dashboard.
+- Phase 20: Docker Compose health checks for Redis and the web app.
+- Phase 21: trusted reverse-proxy policy for `X-Forwarded-For` client identity.
+- Phase 22: templated route keys for path-parameter routes.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.

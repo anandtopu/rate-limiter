@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     rules_path: str = "rules.json"
     expose_demo_dashboard: bool = True
     hash_identifiers: bool = False
+    trusted_proxy_ips: str = ""
     enable_tracing: bool = False
     trace_service_name: str = "portfolio-rate-limiter"
     trace_console_exporter: bool = True

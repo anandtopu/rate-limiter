@@ -6,6 +6,7 @@ import pytest
 import redis.asyncio as redis
 
 import app.api.depends as depends
+from app.config import settings
 from app.core.limiter import RedisRateLimiter
 from app.core.rules import RulesManager
 
@@ -70,6 +71,98 @@ async def test_fixed_window_route_rule(client):
     assert response.status_code == 429
     assert response.headers["x-ratelimit-algorithm"] == "fixed_window"
     assert "retry-after" in response.headers
+
+
+@pytest.mark.asyncio
+async def test_templated_route_uses_route_pattern_for_limits(client):
+    rules_path = "tmp-test-data/templated-route/rules.json"
+    Path(rules_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(rules_path).write_text(
+        json.dumps(
+            {
+                "routes": {
+                    "/api/accounts/{account_id}/data": {
+                        "global_limit": {
+                            "rate": 0.001,
+                            "capacity": 1,
+                            "fail_mode": "open",
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    depends.rules_manager = RulesManager(rules_path)
+
+    headers = {"X-API-Key": "templated_user"}
+    first = await client.get("/api/accounts/acct_1/data", headers=headers)
+    second = await client.get("/api/accounts/acct_2/data", headers=headers)
+
+    assert first.status_code == 200
+    assert first.json()["account_id"] == "acct_1"
+    assert second.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_forwarded_for_is_ignored_without_trusted_proxy(client):
+    rules_path = "tmp-test-data/xff-untrusted/rules.json"
+    Path(rules_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(rules_path).write_text(
+        json.dumps(
+            {
+                "routes": {
+                    "/api/data": {
+                        "global_limit": {
+                            "rate": 0.001,
+                            "capacity": 1,
+                            "fail_mode": "open",
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    depends.rules_manager = RulesManager(rules_path)
+
+    first = await client.get("/api/data", headers={"X-Forwarded-For": "203.0.113.10"})
+    second = await client.get("/api/data", headers={"X-Forwarded-For": "203.0.113.11"})
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_forwarded_for_is_used_for_trusted_proxy(client):
+    settings.trusted_proxy_ips = "127.0.0.1"
+    rules_path = "tmp-test-data/xff-trusted/rules.json"
+    Path(rules_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(rules_path).write_text(
+        json.dumps(
+            {
+                "routes": {
+                    "/api/data": {
+                        "global_limit": {
+                            "rate": 0.001,
+                            "capacity": 1,
+                            "fail_mode": "open",
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    depends.rules_manager = RulesManager(rules_path)
+
+    first = await client.get("/api/data", headers={"X-Forwarded-For": "203.0.113.10"})
+    second = await client.get("/api/data", headers={"X-Forwarded-For": "203.0.113.11"})
+    third = await client.get("/api/data", headers={"X-Forwarded-For": "203.0.113.10"})
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert third.status_code == 429
 
 
 @pytest.mark.asyncio

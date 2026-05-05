@@ -27,6 +27,7 @@ async def client(redis_client):
     telemetry_hub.reset()
     telemetry_hub.set_store(None)
     settings.hash_identifiers = False
+    settings.trusted_proxy_ips = ""
     settings.expose_demo_dashboard = True
     settings.enable_tracing = False
     settings.trace_console_exporter = True
@@ -41,6 +42,7 @@ async def client(redis_client):
         yield ac
 
     settings.hash_identifiers = False
+    settings.trusted_proxy_ips = ""
     settings.expose_demo_dashboard = True
     settings.enable_tracing = False
     settings.trace_console_exporter = True

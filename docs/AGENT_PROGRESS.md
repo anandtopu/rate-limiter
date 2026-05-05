@@ -43,6 +43,9 @@ Last updated: 2026-05-05
 | 17 | Done | Dashboard controls for audited rule updates, reloads, and rollbacks. |
 | 18 | Done | Local OpenTelemetry collector compose profile for tracing demos. |
 | 19 | Done | Persistent telemetry time-range filters in the API and dashboard. |
+| 20 | Done | Docker Compose health checks for Redis and the web app. |
+| 21 | Done | Trusted reverse-proxy policy for `X-Forwarded-For` client identity. |
+| 22 | Done | Templated route keys for path-parameter routes. |
 
 ## Verification Commands
 

@@ -1,4 +1,5 @@
 import hashlib
+import ipaddress
 import math
 
 from fastapi import Request, Response
@@ -41,15 +42,75 @@ def protected_identifier(identifier: str) -> str:
     return f"sha256:{digest}"
 
 
+def trusted_proxy_networks() -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+    networks = []
+    for raw_value in settings.trusted_proxy_ips.split(","):
+        value = raw_value.strip()
+        if not value:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(value, strict=False))
+        except ValueError:
+            continue
+
+    return networks
+
+
+def is_trusted_proxy(host: str) -> bool:
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+
+    return any(address in network for network in trusted_proxy_networks())
+
+
+def first_forwarded_for(headers: str | None) -> str | None:
+    if not headers:
+        return None
+
+    for part in headers.split(","):
+        candidate = part.strip()
+        if not candidate:
+            continue
+        try:
+            ipaddress.ip_address(candidate)
+        except ValueError:
+            return None
+        return candidate
+
+    return None
+
+
+def client_ip_for_request(request: Request) -> str:
+    direct_client_ip = request.client.host if request.client else "127.0.0.1"
+
+    if is_trusted_proxy(direct_client_ip):
+        forwarded_ip = first_forwarded_for(request.headers.get("X-Forwarded-For"))
+        if forwarded_ip:
+            return forwarded_ip
+
+    return direct_client_ip
+
+
+def route_key_for_request(request: Request) -> str:
+    route = request.scope.get("route")
+    templated_path = getattr(route, "path_format", None) or getattr(route, "path", None)
+    if templated_path:
+        return templated_path
+
+    return request.url.path
+
+
 async def rate_limit(request: Request, response: Response):
     if not redis_limiter or not rules_manager:
         return
         
-    client_ip = request.client.host if request.client else "127.0.0.1"
+    client_ip = client_ip_for_request(request)
     api_key = request.headers.get("X-API-Key")
     identifier = api_key if api_key else client_ip
 
-    route_path = request.url.path
+    route_path = route_key_for_request(request)
     rule = rules_manager.get_rule(route_path, identifier)
     metric_identifier = protected_identifier(identifier)
 

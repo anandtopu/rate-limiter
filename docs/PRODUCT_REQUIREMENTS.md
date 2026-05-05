@@ -60,7 +60,7 @@ The target product is a demo-ready "Rate Limiter Control Plane + Enforcement API
 - No admin API to inspect, validate, reload, or update rules.
 - No authentication on internal/admin-like endpoints, including AI telemetry.
 - Rules are file-backed with local version history, rollback, and lightweight audit metadata, but no multi-user approval workflow.
-- Exact route-path matching will not handle templated routes well if the API grows.
+- Exact route-path matching will not handle templated routes well if the API grows. (Implemented in Phase 22 with FastAPI route templates.)
 - No endpoint-level metadata such as route owner, tier, sensitivity, or fail behavior.
 
 ### Rate Limiting Correctness Gaps
@@ -83,7 +83,7 @@ The target product is a demo-ready "Rate Limiter Control Plane + Enforcement API
 
 - Admin and AI endpoints have no API key, role, or network boundary.
 - API keys are used directly as Redis key material and telemetry identifiers.
-- No clear trust policy for `X-Forwarded-For` or reverse proxy headers.
+- No clear trust policy for `X-Forwarded-For` or reverse proxy headers. (Implemented in Phase 21 with `TRUSTED_PROXY_IPS`.)
 - No request ID or correlation ID for tracing rate-limit decisions.
 
 ## 7. Proposed Product Scope
@@ -166,7 +166,7 @@ The MVP should make the project feel complete without turning it into a large pl
 - Admin and internal telemetry endpoints must require an admin API key in demo mode.
 - Public protected API routes must continue to use `X-API-Key` as the rate-limit identity.
 - Identifiers used in Redis keys should be hashed or normalized.
-- Documentation must describe how proxy IP extraction should be configured safely.
+- Documentation must describe how proxy IP extraction should be configured safely. (Implemented in Phase 21.)
 
 ## 9. Non-Functional Requirements
 
