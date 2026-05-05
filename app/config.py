@@ -24,5 +24,8 @@ class Settings(BaseSettings):
     trace_otlp_timeout_s: float = 10.0
     persist_telemetry: bool = False
     telemetry_db_path: str = "data/telemetry.sqlite3"
+    ai_copilot_enabled: bool = False
+    ai_copilot_provider: str = "fake"
+    ai_copilot_timeout_s: float = 10.0
 
 settings = Settings()

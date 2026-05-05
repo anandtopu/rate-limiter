@@ -28,9 +28,9 @@ Last updated: 2026-05-05
 - The forward backlog has been refreshed as an AI research upgrade in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md), [BACKLOG_STATUS.md](BACKLOG_STATUS.md), and [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 - Latest known verification from this coding pass:
   - `.\.venv\Scripts\ruff.exe check .` passed.
-  - `.\.venv\Scripts\pytest.exe -q` passed with `93 passed`.
-  - `.\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml` passed with `93 passed`, `83%` total coverage, and `coverage.xml` generated.
-- Next agent should start with AI-P4: optional LLM policy copilot.
+  - `.\.venv\Scripts\pytest.exe -q` passed with `98 passed`.
+  - `.\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml` passed with `98 passed`, `83%` total coverage, and `coverage.xml` generated.
+- Next agent should start with AI-P5: research evaluation harness.
 - Recommended first implementation read:
   - [app/core/rules.py](../app/core/rules.py)
   - [app/api/admin.py](../app/api/admin.py)
@@ -82,6 +82,7 @@ Last updated: 2026-05-05
 | AI-P1 | Done | Structured advisor v2 recommendations for tuning, abuse, reliability, and algorithm selection. |
 | AI-P2 | Done | Replay-based counterfactual dry-runs with route and identifier impact summaries. |
 | AI-P3 | Done | Deterministic anomaly detection for route spikes, retry loops, concentrated offenders, sensitive-route probing, and Redis outage exposure. |
+| AI-P4 | Done | Optional policy copilot with disabled-by-default config, fake provider, safe validation, dry-run, and dashboard controls. |
 
 ## Verification Commands
 
@@ -111,8 +112,7 @@ curl.exe -s http://localhost:8001/admin/telemetry/persistent -H "X-Admin-Key: de
 
 ## Next Recommended Work
 
-1. Implement AI-P4 optional LLM policy copilot:
-   - add disabled-by-default configuration and an adapter interface;
-   - expose a control-plane-only admin endpoint for explanations and validated draft policies;
-   - validate and dry-run any generated rule JSON before returning it;
-   - add fake-adapter tests so local and CI runs never need provider credentials.
+1. Implement AI-P5 research evaluation harness:
+   - add repeatable normal, bursty, abusive, retry-loop, sensitive-probing, Redis-outage, and mixed scenarios;
+   - save expected anomaly/recommendation labels;
+   - report precision, false-positive notes, denied-legitimate estimates, abuse-reduction estimates, and policy stability.

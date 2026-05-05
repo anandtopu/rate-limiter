@@ -134,6 +134,21 @@
 
         <article class="panel rules-panel">
           <div class="panel-heading">
+            <h2>Policy Copilot</h2>
+            <button id="policyCopilotBtn" type="button" class="icon-button">Run</button>
+          </div>
+          <textarea id="policyCopilotPromptInput" class="json-input" spellcheck="false">Explain current limiter pressure and safest policy next steps.</textarea>
+          <div class="approval-grid">
+            <label class="checkbox-label">
+              <input id="policyCopilotIncludeDraftInput" type="checkbox" />
+              <span>Include dry-run policy draft</span>
+            </label>
+          </div>
+          <pre id="policyCopilotOutput" class="json-output">{}</pre>
+        </article>
+
+        <article class="panel rules-panel">
+          <div class="panel-heading">
             <h2>Active Rules</h2>
             <button id="rulesBtn" type="button" class="icon-button">Load</button>
           </div>

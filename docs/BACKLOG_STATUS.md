@@ -51,6 +51,7 @@
 - Complete AI-P1 advisor v2 with structured tuning, abuse, reliability, and algorithm recommendations.
 - Complete AI-P2 replay-based counterfactual dry-run with route and identifier impact summaries.
 - Complete AI-P3 anomaly and abuse detection with route spikes, retry loops, concentrated offenders, sensitive-route probing, Redis outage exposure, admin API visibility, and dashboard output.
+- Complete AI-P4 optional policy copilot with disabled-by-default configuration, provider adapter boundary, fake local adapter, admin endpoint, validation, replay dry-run, and dashboard controls.
 
 ## Remaining
 
@@ -64,13 +65,13 @@
 
 ### P2: Advanced Platform Enhancements
 
-- AI-P4: Optional LLM policy copilot for explanations and validated policy drafts.
 - AI-P5: Research evaluation harness with repeatable traffic scenarios and recommendation-quality reporting.
 
 ## Resume Notes
 
 - The original portfolio upgrade backlog is complete through Phase 35. The new queue is the AI research upgrade described in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md).
-- Start next with AI-P4: optional LLM policy copilot. Keep LLM use disabled by default, control-plane only, and outside the request enforcement path.
+- Start next with AI-P5: research evaluation harness for repeatable traffic scenarios and recommendation-quality reporting.
+- AI-P4 added `app/ai/copilot.py`, `POST /admin/ai/policy-copilot`, disabled-by-default `AI_COPILOT_ENABLED`, fake provider support, safe validation/dry-run of generated rule JSON, and a dashboard Policy Copilot panel. The endpoint returns `applied: false` and never mutates active rules.
 - AI-P3 added `app/ai/anomalies.py`, includes anomaly summaries in `/ai/signals`, exposes `GET /admin/ai/anomalies`, and adds a dashboard Anomalies panel. Findings include stable IDs, type, severity, route or identifier scope, rationale, evidence, and suggested next actions.
 - AI-P2 added `app/ai/simulation.py` and extends dry-run reports with a `replay` section covering events replayed, observed/current/proposed denials, newly denied, newly allowed, route impact, identifier impact, and sensitive-route impact.
 - AI-P1 added deterministic advisor engines in `app/ai/advisors.py` for tuning, abuse, reliability, and algorithm recommendations. `/ai/recommendations` now returns schema version 2 recommendations with stable IDs, confidence, rationale, proposed changes, expected impact, and safety notes while preserving legacy recommendation fields.

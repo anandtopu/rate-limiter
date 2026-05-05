@@ -4,8 +4,16 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Reques
 from pydantic import ValidationError
 
 import app.api.depends as rate_limit_depends
+from app.ai.copilot import (
+    SAFETY_CONSTRAINTS,
+    CopilotConfigurationError,
+    PolicyCopilotRequest,
+    build_copilot_input,
+    get_policy_copilot_adapter,
+)
 from app.ai.telemetry import telemetry_hub
 from app.api.security import configured_admin_keys, require_admin_key
+from app.config import settings
 from app.core.rules import RulesApprovalError, RulesLoadError
 from app.observability.metrics import record_rule_reload_metric
 
@@ -171,6 +179,21 @@ IMPORT_RESPONSE_EXAMPLE = {
     "imported": True,
     **RULE_SNAPSHOT_EXAMPLE,
 }
+POLICY_COPILOT_BODY_EXAMPLES = {
+    "explain_only": {
+        "summary": "Explain current AI signals",
+        "description": "Returns an explanation without proposing rule JSON.",
+        "value": {"prompt": "Explain recent rate-limit pressure and safest next steps."},
+    },
+    "validate_draft": {
+        "summary": "Validate and dry-run generated policy JSON",
+        "description": "The fake adapter treats proposed_rules as generated policy JSON.",
+        "value": {
+            "prompt": "Review this draft policy and estimate impact before apply.",
+            "proposed_rules": RULE_POLICY_EXAMPLE,
+        },
+    },
+}
 
 
 def get_rules_manager():
@@ -266,6 +289,86 @@ async def get_admin_keys(request: Request):
 )
 async def get_ai_anomalies():
     return telemetry_hub.detect_anomalies()
+
+
+@router.post(
+    "/ai/policy-copilot",
+    summary="Explain telemetry and validate optional AI-generated rule drafts",
+)
+async def policy_copilot(
+    payload: PolicyCopilotRequest = Body(openapi_examples=POLICY_COPILOT_BODY_EXAMPLES),
+):
+    manager = get_rules_manager()
+    try:
+        adapter = get_policy_copilot_adapter(
+            enabled=settings.ai_copilot_enabled,
+            provider=settings.ai_copilot_provider,
+            proposed_rules=payload.proposed_rules,
+        )
+    except CopilotConfigurationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    recommendations = telemetry_hub.generate_recommendations()
+    anomalies = telemetry_hub.detect_anomalies()
+    copilot_input = build_copilot_input(
+        payload,
+        active_rules=manager.snapshot()["rules"],
+        feature_summary=recommendations.get("feature_summary", {}),
+        recommendations=recommendations,
+        anomalies=anomalies,
+    )
+    result = adapter.generate(copilot_input)
+
+    validation: dict[str, Any] = {
+        "valid": None,
+        "status": "skipped",
+        "errors": [],
+        "sensitive_routes": [],
+    }
+    dry_run = None
+    if result.proposed_rules is not None:
+        try:
+            config = manager.validate_rules(result.proposed_rules)
+            validation = {
+                "valid": True,
+                "status": "valid",
+                "errors": [],
+                "sensitive_routes": manager.sensitive_routes_touched(config),
+            }
+            dry_run = manager.dry_run(
+                result.proposed_rules,
+                events=telemetry_hub.recent_events(),
+                window_seconds=telemetry_hub.window_seconds,
+            )
+        except ValidationError as exc:
+            validation = {
+                "valid": False,
+                "status": "invalid",
+                "errors": exc.errors(),
+                "sensitive_routes": [],
+            }
+
+    return {
+        "schema_version": 1,
+        "enabled": True,
+        "provider": adapter.provider,
+        "applied": False,
+        "explanation": result.explanation,
+        "warnings": result.warnings,
+        "safety_constraints": SAFETY_CONSTRAINTS,
+        "context": {
+            "active_routes": len(copilot_input.active_rules.get("routes", {})),
+            "events_analyzed": copilot_input.feature_summary.get("events_analyzed", 0),
+            "recommendations": len(recommendations.get("items", [])),
+            "anomalies": anomalies.get("count", 0),
+        },
+        "proposed_rules": result.proposed_rules,
+        "validation": validation,
+        "dry_run": dry_run,
+    }
 
 
 @router.get(

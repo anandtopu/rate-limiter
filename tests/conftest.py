@@ -40,6 +40,9 @@ async def client(redis_client):
     settings.trace_otlp_headers = None
     settings.trace_otlp_timeout_s = 10.0
     settings.persist_telemetry = False
+    settings.ai_copilot_enabled = False
+    settings.ai_copilot_provider = "fake"
+    settings.ai_copilot_timeout_s = 10.0
     
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
@@ -59,4 +62,7 @@ async def client(redis_client):
     settings.trace_otlp_headers = None
     settings.trace_otlp_timeout_s = 10.0
     settings.persist_telemetry = False
+    settings.ai_copilot_enabled = False
+    settings.ai_copilot_provider = "fake"
+    settings.ai_copilot_timeout_s = 10.0
     telemetry_hub.set_store(None)

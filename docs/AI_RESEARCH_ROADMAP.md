@@ -17,9 +17,9 @@ The application already has the foundations needed for AI-assisted rate-limit tu
 - Rule metadata for `tier`, `owner`, and `sensitivity`.
 - Rule dry-run, history, audit, import/export, rollback, and pending approval APIs.
 - Recommendation-to-draft flow at `POST /admin/rules/recommendation-draft`.
-- Dashboard panels for signals, persisted telemetry, recommendations, dry runs, rule history, audit, and approvals.
+- Dashboard panels for signals, persisted telemetry, recommendations, anomalies, policy copilot, dry runs, rule history, audit, and approvals.
 
-The current AI layer is deterministic and threshold-based. It detects high 429 ratios and Redis fail-open exposure, then drafts simple policy changes. That is a good seed, but not enough for research-grade analysis.
+The current AI layer is deterministic and control-plane only. It extracts telemetry features, produces advisor recommendations, replays policy drafts, detects anomalies, and can run an optional fake policy copilot for local explanation and draft-validation workflows.
 
 ## Design Principles
 
@@ -161,7 +161,7 @@ Acceptance criteria:
 
 ### AI-P4: LLM Policy Copilot
 
-Status: Next.
+Status: Done.
 
 Goal: add optional natural-language assistance for explaining telemetry and drafting safe policy changes.
 
@@ -182,6 +182,8 @@ Acceptance criteria:
 - Invalid LLM-generated JSON is reported safely.
 
 ### AI-P5: Research Evaluation Harness
+
+Status: Next.
 
 Goal: make AI feature quality measurable and repeatable.
 

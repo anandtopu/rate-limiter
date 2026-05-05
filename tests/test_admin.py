@@ -134,6 +134,11 @@ async def test_openapi_includes_admin_examples(client):
         "application/json"
     ]["examples"]
     assert import_examples["export_envelope"]["value"]["kind"] == "rate-limiter.rules.export"
+    copilot_examples = paths["/admin/ai/policy-copilot"]["post"]["requestBody"]["content"][
+        "application/json"
+    ]["examples"]
+    assert "explain_only" in copilot_examples
+    assert "validate_draft" in copilot_examples
 
     telemetry_params = {
         parameter["name"]: parameter

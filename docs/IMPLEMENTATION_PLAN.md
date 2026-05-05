@@ -267,7 +267,6 @@ The original MVP and follow-up backlog has been implemented through Phase 35. Co
 
 ### P2: Advanced Platform Enhancements
 
-- AI-P4: optional LLM policy copilot.
 - AI-P5: research evaluation harness.
 
 ## 9. AI Research Upgrade

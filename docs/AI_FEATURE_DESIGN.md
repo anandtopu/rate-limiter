@@ -112,7 +112,7 @@ Advisor output should use a common schema:
 - Keep `POST /admin/rules/recommendation-draft`, but make it consume advisor-v2 `proposed_change`.
 - Extend `POST /admin/rules/dry-run` with replay simulation details.
 - Add `GET /admin/ai/anomalies` and include anomaly findings in the signals response.
-- Add optional `POST /admin/ai/policy-copilot` only after deterministic advisors and simulation are stable.
+- Add optional `POST /admin/ai/policy-copilot` after deterministic advisors and simulation are stable.
 
 ## Dashboard Upgrade Plan
 
@@ -137,5 +137,5 @@ Advisor output should use a common schema:
 2. Introduce advisor v2 while preserving old recommendation fields where useful.
 3. Add replay dry-run and dashboard summaries.
 4. Add anomaly APIs and scenario tests. (Done in AI-P3.)
-5. Add optional LLM copilot with fake adapter tests.
+5. Add optional LLM copilot with fake adapter tests. (Done in AI-P4.)
 6. Publish evaluation results and limitations.

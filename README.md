@@ -26,6 +26,7 @@ This repository has been upgraded into a portfolio-ready "Rate Limiter Control P
 - **Advisor V2**: Deterministic tuning, abuse, reliability, and algorithm advisors return structured recommendations with confidence, rationale, proposed changes, expected impact, and safety notes.
 - **Replay Dry Run**: Policy dry-runs include a deterministic replay report with newly denied, newly allowed, route impact, identifier impact, and sensitive-route impact.
 - **Anomaly Detection**: Deterministic findings flag route spikes, retry loops, concentrated offenders, sensitive-route probing, and Redis outage exposure with evidence and suggested next actions.
+- **Optional Policy Copilot**: A disabled-by-default control-plane endpoint can explain AI signals and validate/dry-run generated rule JSON through a provider adapter, with a deterministic fake provider for local tests.
 - **Admin Rule API**: `X-Admin-Key` protects rule inspect, validate, update, approval, and reload endpoints.
 - **Operational Endpoints**: `/health`, `/ready`, and `/metrics` expose process health, Redis readiness, and Prometheus-style counters.
 - **Docker Health Checks**: Compose marks Redis and the web app healthy only after Redis responds and `/ready` succeeds.
@@ -242,6 +243,8 @@ Behavior today:
 - `PERSIST_TELEMETRY=true` enables SQLite event persistence.
 - `TELEMETRY_DB_PATH=data/telemetry.sqlite3` controls the SQLite database path.
 - `TRUSTED_PROXY_IPS` is a comma-separated list of proxy IPs or CIDR ranges allowed to supply `X-Forwarded-For`.
+- `AI_COPILOT_ENABLED=false` keeps the policy copilot off unless explicitly enabled.
+- `AI_COPILOT_PROVIDER=fake` selects the deterministic local/test adapter. Other providers are rejected until an adapter is implemented.
 
 ## Operations
 
@@ -295,6 +298,7 @@ Available endpoints:
 - `GET /admin/rules`
 - `GET /admin/keys`
 - `GET /admin/ai/anomalies`
+- `POST /admin/ai/policy-copilot`
 - `GET /admin/rules/export`
 - `GET /admin/telemetry/persistent`
 - `GET /admin/rules/history`
@@ -317,6 +321,8 @@ The rule audit endpoint accepts optional `route`, `actor`, `action`, `sensitivit
 Use `GET /admin/rules/export` to download a portable rule-policy envelope with schema metadata, store backend, current version, and rule JSON. Use `POST /admin/rules/import` with either that envelope or raw rule JSON to restore a demo policy; imports are validated before applying, recorded in rule history, and sensitive-route imports require the same pending approval flow as direct updates.
 
 The recommendation draft endpoint converts current AI recommendations into editable proposed rule JSON and returns a dry-run report. It never applies changes automatically.
+
+The policy copilot endpoint is disabled by default. When enabled with `AI_COPILOT_ENABLED=true`, it returns explanation text and can validate plus dry-run generated rule JSON. It never applies changes directly; sensitive-route drafts still have to go through the existing approval flow.
 
 The generated OpenAPI schema includes examples for rule metadata, dry runs, imports, rollbacks, and persistent telemetry filters. Open `/docs` while the app is running to use those examples from Swagger UI.
 
@@ -435,6 +441,13 @@ View anomaly findings:
 curl http://localhost:8001/admin/ai/anomalies -H "X-Admin-Key: dev-admin-key"
 ```
 
+Run the optional fake policy copilot:
+
+```powershell
+$env:AI_COPILOT_ENABLED="true"
+curl.exe -X POST http://localhost:8001/admin/ai/policy-copilot -H "X-Admin-Key: dev-admin-key" -H "Content-Type: application/json" -d "{\"prompt\":\"Explain current limiter pressure.\"}"
+```
+
 Draft editable policy JSON from recommendations:
 
 ```bash
@@ -496,5 +509,6 @@ Completed in this upgrade pass:
 - AI-P1: advisor v2 with structured tuning, abuse, reliability, and algorithm recommendations.
 - AI-P2: replay-based counterfactual dry-runs with route and identifier impact summaries.
 - AI-P3: anomaly and abuse detection with admin API and dashboard visibility.
+- AI-P4: optional policy copilot with disabled-by-default config, provider adapter, fake local provider, validation, dry-run, and dashboard controls.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.

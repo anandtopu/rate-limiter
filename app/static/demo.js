@@ -17,6 +17,7 @@ const els = {
   recommendationsBtn: document.querySelector("#recommendationsBtn"),
   recommendationDraftBtn: document.querySelector("#recommendationDraftBtn"),
   anomaliesBtn: document.querySelector("#anomaliesBtn"),
+  policyCopilotBtn: document.querySelector("#policyCopilotBtn"),
   rulesBtn: document.querySelector("#rulesBtn"),
   historyBtn: document.querySelector("#historyBtn"),
   auditViewBtn: document.querySelector("#auditViewBtn"),
@@ -46,6 +47,9 @@ const els = {
   persistentTelemetryOutput: document.querySelector("#persistentTelemetryOutput"),
   recommendationsOutput: document.querySelector("#recommendationsOutput"),
   anomaliesOutput: document.querySelector("#anomaliesOutput"),
+  policyCopilotPromptInput: document.querySelector("#policyCopilotPromptInput"),
+  policyCopilotIncludeDraftInput: document.querySelector("#policyCopilotIncludeDraftInput"),
+  policyCopilotOutput: document.querySelector("#policyCopilotOutput"),
   rulesOutput: document.querySelector("#rulesOutput"),
   historyOutput: document.querySelector("#historyOutput"),
   auditRouteFilterInput: document.querySelector("#auditRouteFilterInput"),
@@ -280,6 +284,40 @@ async function draftRecommendationPolicy() {
 
 async function loadAnomalies() {
   await loadAdminJson("/admin/ai/anomalies", {}, els.anomaliesOutput);
+}
+
+async function runPolicyCopilot() {
+  const prompt = els.policyCopilotPromptInput.value.trim()
+    || "Explain current limiter pressure and safest policy next steps.";
+  const payload = { prompt };
+
+  if (els.policyCopilotIncludeDraftInput.checked) {
+    try {
+      payload.proposed_rules = JSON.parse(els.dryRunInput.value);
+    } catch (error) {
+      els.policyCopilotOutput.textContent = pretty({ error: error.message });
+      return;
+    }
+  }
+
+  const response = await fetch("/admin/ai/policy-copilot", {
+    method: "POST",
+    headers: {
+      ...requestHeaders(true),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const body = await readJson(response);
+  els.policyCopilotOutput.textContent = pretty(body);
+
+  if (body.proposed_rules) {
+    els.dryRunInput.value = pretty(body.proposed_rules);
+  }
+
+  if (body.dry_run) {
+    els.dryRunOutput.textContent = pretty(body.dry_run);
+  }
 }
 
 async function loadRules() {
@@ -586,6 +624,10 @@ els.recommendationDraftBtn.addEventListener("click", () => {
 
 els.anomaliesBtn.addEventListener("click", () => {
   loadAnomalies();
+});
+
+els.policyCopilotBtn.addEventListener("click", () => {
+  runPolicyCopilot();
 });
 
 els.rulesBtn.addEventListener("click", () => {
