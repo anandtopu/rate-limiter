@@ -255,7 +255,7 @@ Use FastAPI static files plus one lightweight HTML/CSS/JavaScript page:
 
 ### Original MVP Backlog
 
-The original MVP and follow-up backlog has been implemented through Phase 30. Completed work includes limiter correctness, admin APIs, dashboard, metrics, tracing, persistent telemetry, CI/security checks, rule history, policy dry runs, multiple algorithms, proxy trust, templated route keys, rule metadata, sensitive-rule approval workflow, optional SQLite-backed rule storage, pending-approval dashboard controls, a filtered rule-change audit view, a Redis outage demo script, recommendation-to-dry-run policy drafts, and documented load-test benchmark output.
+The original MVP and follow-up backlog has been implemented through Phase 35. Completed work includes limiter correctness, admin APIs, dashboard, metrics, tracing, persistent telemetry, CI/security checks, rule history, policy dry runs, multiple algorithms, proxy trust, templated route keys, rule metadata, sensitive-rule approval workflow, optional SQLite-backed rule storage, pending-approval dashboard controls, a filtered rule-change audit view, a Redis outage demo script, recommendation-to-dry-run policy drafts, documented load-test benchmark output, CI coverage reporting, sliding-window rate limiting, multiple named admin keys with safe key-name introspection, rule import/export helpers, and OpenAPI examples for admin workflows.
 
 ### P0: Next Implementation Candidates
 
@@ -263,14 +263,11 @@ The original MVP and follow-up backlog has been implemented through Phase 30. Co
 
 ### P1: Product And Demo Polish
 
-- Add coverage reporting in CI so test depth is visible alongside lint, security scan, and SBOM checks.
+- P1 product and demo polish queue is complete.
 
 ### P2: Advanced Platform Enhancements
 
-- Add a sliding-window algorithm behind the existing per-rule algorithm selection.
-- Add admin key rotation support or multiple named admin keys for local/demo environments.
-- Add rule import/export helpers for sharing demo policies and restoring known-good demo states.
-- Add OpenAPI examples for admin rule management, dry runs, rollback, persistent telemetry filters, and metadata fields.
+- P2 advanced platform enhancement queue is complete.
 
 ## 9. Proposed Milestones
 

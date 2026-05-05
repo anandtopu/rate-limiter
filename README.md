@@ -7,7 +7,7 @@ This repository is being upgraded into a portfolio-ready "Rate Limiter Control P
 ## Current Features
 
 - **Token Bucket Engine**: Continuous token regeneration tracked in Redis.
-- **Multiple Algorithms**: Rules can use `token_bucket` or `fixed_window`.
+- **Multiple Algorithms**: Rules can use `token_bucket`, `fixed_window`, or `sliding_window`.
 - **Atomic Redis Evaluation**: Lua scripting keeps token updates race-safe across concurrent requests.
 - **Rule Configuration**: Per-route global limits and identifier-specific overrides are loaded from `rules.json` by default, with an optional SQLite-backed rule store for durable demos.
 - **Rule Metadata**: Rules can carry route tier, owner, and sensitivity labels into validation, logs, and limiter traces.
@@ -67,7 +67,7 @@ This project is production-inspired, not fully production-ready yet. The current
 
 - **Telemetry persistence is optional**: in-memory signals stay as the fast path; SQLite persistence is best-effort and off by default.
 - **Rule storage is local**: JSON remains the readable default; optional SQLite persists active rules, history, and pending approvals, but this is still not a multi-user control-plane database.
-- **Demo admin key**: admin and AI endpoints are protected by `X-Admin-Key`, with a development default that should be overridden outside local demos.
+- **Demo admin keys**: admin and AI endpoints are protected by `X-Admin-Key`, with a development default and optional named keys for local rotation demos.
 - **Fail-open by default**: good for availability demos, risky for sensitive endpoints; sensitive demo routes can opt into fail-closed.
 - **Identifier hashing defaults off**: API keys and IPs can be hashed in Redis keys and telemetry with `HASH_IDENTIFIERS=true`, but the default keeps demo behavior easy to inspect.
 
@@ -79,7 +79,7 @@ These are intentionally tracked in [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTA
 - **Limiter State**: Redis 7
 - **Atomicity**: Redis Lua scripting
 - **Validation**: Pydantic
-- **Testing**: Pytest, pytest-asyncio, fakeredis
+- **Testing**: Pytest, pytest-asyncio, fakeredis, and coverage reporting
 - **Security Checks**: pip-audit dependency audit, Bandit static scan, and CycloneDX SBOM generation
 - **Demo UI**: Static HTML/CSS/JavaScript served by FastAPI
 - **Deployment**: Docker and Docker Compose
@@ -151,6 +151,7 @@ If an old virtual environment points to a missing Python installation, recreate 
 
 ```bash
 make test
+make coverage
 make lint
 make security
 make sbom
@@ -163,6 +164,7 @@ Without `make`, the equivalent checks are:
 
 ```powershell
 .\.venv\Scripts\pytest.exe -q
+.\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml
 .\.venv\Scripts\ruff.exe check .
 .\.venv\Scripts\bandit.exe -q -r app -c pyproject.toml
 .\.venv\Scripts\cyclonedx-py.exe requirements requirements.txt --of JSON --output-reproducible --output-file sbom.json
@@ -227,7 +229,7 @@ Behavior today:
 - `/health` is not rate-limited.
 - `/api/data` uses `token_bucket` by default.
 - `/api/limited-health` uses `fixed_window` for demo traffic.
-- `/api/accounts/{account_id}/data` demonstrates templated route matching for path parameters.
+- `/api/accounts/{account_id}/data` demonstrates templated route matching and `sliding_window` limits for path parameters.
 - `PERSIST_TELEMETRY=true` enables SQLite event persistence.
 - `TELEMETRY_DB_PATH=data/telemetry.sqlite3` controls the SQLite database path.
 - `TRUSTED_PROXY_IPS` is a comma-separated list of proxy IPs or CIDR ranges allowed to supply `X-Forwarded-For`.
@@ -263,6 +265,16 @@ Admin endpoints use the `X-Admin-Key` header. The development default is `dev-ad
 curl http://localhost:8001/admin/rules -H "X-Admin-Key: dev-admin-key"
 ```
 
+For local key rotation demos, keep the legacy `ADMIN_API_KEY` fallback and add named keys with `ADMIN_API_KEYS`:
+
+```powershell
+ADMIN_API_KEY=dev-admin-key
+ADMIN_API_KEYS=primary:primary-key,backup:backup-key
+```
+
+Named keys are accepted alongside the legacy key. When an admin mutation omits `X-Audit-Actor`, the matched key name becomes the default audit actor, such as `primary` or `backup`.
+Use `GET /admin/keys` to confirm the active key name and configured key names during local rotation demos. The endpoint never returns secret key values.
+
 Rule-changing endpoints can include optional audit headers:
 
 - `X-Audit-Actor`: human or automation actor.
@@ -272,12 +284,15 @@ Rule-changing endpoints can include optional audit headers:
 Available endpoints:
 
 - `GET /admin/rules`
+- `GET /admin/keys`
+- `GET /admin/rules/export`
 - `GET /admin/telemetry/persistent`
 - `GET /admin/rules/history`
 - `GET /admin/rules/audit`
 - `GET /admin/rules/pending`
 - `POST /admin/rules/validate`
 - `POST /admin/rules/dry-run`
+- `POST /admin/rules/import`
 - `POST /admin/rules/recommendation-draft`
 - `PUT /admin/rules`
 - `POST /admin/rules/pending/{approval_id}/approve`
@@ -289,7 +304,11 @@ Changes that touch routes labeled with `sensitivity: "sensitive"` are saved as p
 
 The rule audit endpoint accepts optional `route`, `actor`, `action`, `sensitivity`, `since`, `until`, and `limit` query parameters for focused change review.
 
+Use `GET /admin/rules/export` to download a portable rule-policy envelope with schema metadata, store backend, current version, and rule JSON. Use `POST /admin/rules/import` with either that envelope or raw rule JSON to restore a demo policy; imports are validated before applying, recorded in rule history, and sensitive-route imports require the same pending approval flow as direct updates.
+
 The recommendation draft endpoint converts current AI recommendations into editable proposed rule JSON and returns a dry-run report. It never applies changes automatically.
+
+The generated OpenAPI schema includes examples for rule metadata, dry runs, imports, rollbacks, and persistent telemetry filters. Open `/docs` while the app is running to use those examples from Swagger UI.
 
 ## Portfolio Demo Walkthrough
 
@@ -452,5 +471,10 @@ Completed in this upgrade pass:
 - Phase 28: Redis outage demo script for fail-open and fail-closed behavior.
 - Phase 29: recommendation-to-dry-run flow that drafts editable policy JSON from AI suggestions.
 - Phase 30: documented load-test benchmark output for free, premium, abusive, and templated-route scenarios.
+- Phase 31: CI coverage reporting with terminal summary and uploaded `coverage.xml` artifact.
+- Phase 32: sliding-window algorithm behind the existing per-rule algorithm selection.
+- Phase 33: multiple named admin keys for local rotation demos, audit attribution, and safe key-name introspection.
+- Phase 34: rule import/export helpers for sharing demo policies and restoring known-good demo states.
+- Phase 35: OpenAPI examples for admin rule management, dry runs, rollback, persistent telemetry filters, and metadata fields.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.

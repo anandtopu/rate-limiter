@@ -23,13 +23,14 @@ Last updated: 2026-05-05
 ## Resume Snapshot
 
 - Saved for resume on 2026-05-05.
-- Worktree was clean before this snapshot update.
-- The original portfolio upgrade is complete through Phase 30.
+- Worktree contains cumulative uncommitted backlog changes from the current implementation pass.
+- The original portfolio upgrade is complete through Phase 35.
 - The forward backlog has been refreshed in [BACKLOG_STATUS.md](BACKLOG_STATUS.md) and [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 - Latest known verification from this coding pass:
   - `.\.venv\Scripts\ruff.exe check .` passed.
-  - `.\.venv\Scripts\pytest.exe -q` passed with `63 passed`.
-- Next agent should start with the P1 backlog item: coverage reporting in CI so test depth is visible alongside lint, security scan, and SBOM checks.
+  - `.\.venv\Scripts\pytest.exe -q` passed with `75 passed`.
+  - `.\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml` passed with `75 passed`, `82%` total coverage, and `coverage.xml` generated.
+- No backlog items remain in the current queue.
 - Recommended first implementation read:
   - [app/core/rules.py](../app/core/rules.py)
   - [app/api/admin.py](../app/api/admin.py)
@@ -72,12 +73,18 @@ Last updated: 2026-05-05
 | 28 | Done | Redis outage demo script for fail-open and fail-closed behavior. |
 | 29 | Done | Recommendation-to-dry-run flow that drafts editable policy JSON from AI suggestions. |
 | 30 | Done | Documented load-test benchmark output for free, premium, abusive, and templated-route scenarios. |
+| 31 | Done | CI coverage reporting with terminal summary and uploaded coverage XML artifact. |
+| 32 | Done | Sliding-window algorithm behind the existing per-rule algorithm selection. |
+| 33 | Done | Multiple named admin keys for local rotation demos, audit attribution, and safe key-name introspection. |
+| 34 | Done | Rule import/export helpers for sharing demo policies and restoring known-good demo states. |
+| 35 | Done | OpenAPI examples for admin rule management, dry runs, rollback, persistent telemetry filters, and metadata fields. |
 
 ## Verification Commands
 
 ```powershell
 .\.venv\Scripts\ruff.exe check .
 .\.venv\Scripts\pytest.exe -q
+.\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml
 .\.venv\Scripts\bandit.exe -q -r app -c pyproject.toml
 .\.venv\Scripts\cyclonedx-py.exe requirements requirements.txt --of JSON --output-reproducible --output-file sbom.json
 docker-compose build web
@@ -100,6 +107,4 @@ curl.exe -s http://localhost:8001/admin/telemetry/persistent -H "X-Admin-Key: de
 
 ## Next Recommended Work
 
-1. Add coverage reporting in CI so test depth is visible alongside lint, security scan, and SBOM checks.
-2. Add a sliding-window algorithm behind the existing per-rule algorithm selection.
-3. Add admin key rotation support or multiple named admin keys for local/demo environments.
+No queued backlog items remain.

@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 class RateLimitRule(BaseModel):
     rate: float = Field(..., gt=0, description="Tokens to add per second")
     capacity: int = Field(..., gt=0, description="Maximum burst capacity of the bucket")
-    algorithm: Literal["token_bucket", "fixed_window"] = "token_bucket"
+    algorithm: Literal["token_bucket", "fixed_window", "sliding_window"] = "token_bucket"
     fail_mode: Literal["open", "closed"] = "open"
     description: str | None = None
     tier: str | None = None

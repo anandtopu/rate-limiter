@@ -42,6 +42,11 @@
 - Add a Redis outage demo script for fail-open and fail-closed behavior.
 - Add recommendation-to-dry-run support for editable proposed policy JSON from AI suggestions.
 - Add benchmark output from `scripts/load_test.py` to documentation for free, premium, abusive, and templated-route scenarios.
+- Add coverage reporting in CI with terminal summary and uploaded XML artifact.
+- Add a sliding-window algorithm behind the existing per-rule algorithm selection.
+- Add multiple named admin keys for local rotation demos and audit attribution.
+- Add rule import/export helpers for sharing demo policies and restoring known-good demo states.
+- Add OpenAPI examples for admin rule management, dry runs, rollback, persistent telemetry filters, and metadata fields.
 
 ## Remaining
 
@@ -51,18 +56,20 @@
 
 ### P1: Product And Demo Polish
 
-- Add coverage reporting in CI so test depth is visible alongside lint, security scan, and SBOM checks.
+- P1 product and demo polish queue is complete.
 
 ### P2: Advanced Platform Enhancements
 
-- Add a sliding-window algorithm behind the existing per-rule algorithm selection.
-- Add admin key rotation support or multiple named admin keys for local/demo environments.
-- Add rule import/export helpers for sharing demo policies and restoring known-good demo states.
-- Add OpenAPI examples for admin rule management, dry runs, rollback, persistent telemetry filters, and metadata fields.
+- P2 advanced platform enhancement queue is complete.
 
 ## Resume Notes
 
-- The original portfolio upgrade backlog is complete through Phase 30. The remaining items above are the next implementation queue, not unfinished work from the original MVP pass.
+- The original portfolio upgrade backlog is complete through Phase 35. There are no remaining items in the current queue.
+- OpenAPI now includes examples for admin rule metadata, dry-run payloads and responses, import envelopes, rollback responses, and persistent telemetry filters.
+- Rule policies can now be exported with `GET /admin/rules/export` and restored with `POST /admin/rules/import`; imports validate before applying, record `import` history entries, and queue sensitive-route changes for approval.
+- `ADMIN_API_KEYS` accepts comma-separated named keys such as `primary:key-one,backup:key-two`; named keys work alongside `ADMIN_API_KEY`, provide default audit actors, and can be verified by name through `GET /admin/keys` without exposing secrets.
+- Rules can now select `sliding_window`; the templated account-data demo route uses it.
+- CI now runs pytest with coverage for `app` and `scripts`, prints a missing-line summary, and uploads `coverage.xml` as the `coverage-xml` artifact. Local developers can run `make coverage`.
 - `scripts/load_test.py` now covers free, premium, abusive fixed-window, and templated account-data scenarios. README includes representative benchmark output.
 - `POST /admin/rules/recommendation-draft` converts current AI recommendations into editable rule JSON and returns a dry-run report without applying changes.
 - `scripts/redis_outage_demo.py` stops the Compose Redis service, probes the fail-open and fail-closed demo routes, and restores Redis. Use `--skip-stop` for probe-only mode.

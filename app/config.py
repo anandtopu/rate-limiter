@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     # Local demo default; override ADMIN_API_KEY outside demos.
     admin_api_key: str = "dev-admin-key"
+    # Optional comma-separated named keys, e.g. "primary:key-one,backup:key-two".
+    admin_api_keys: str = ""
     rules_path: str = "rules.json"
     rule_store_backend: str = "json"
     rule_store_db_path: str = "data/rules.sqlite3"

@@ -75,6 +75,42 @@ async def test_fixed_window_route_rule(client):
 
 
 @pytest.mark.asyncio
+async def test_sliding_window_route_rule(client):
+    rules_path = "tmp-test-data/sliding-window-api/rules.json"
+
+    Path(rules_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(rules_path).write_text(
+        json.dumps(
+            {
+                "routes": {
+                    "/api/data": {
+                        "global_limit": {
+                            "rate": 1.0,
+                            "capacity": 2,
+                            "algorithm": "sliding_window",
+                            "fail_mode": "open",
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    depends.rules_manager = RulesManager(rules_path)
+
+    headers = {"X-API-Key": "sliding_window_user"}
+    assert (await client.get("/api/data", headers=headers)).status_code == 200
+    response = await client.get("/api/data", headers=headers)
+    assert response.status_code == 200
+    assert response.headers["x-ratelimit-algorithm"] == "sliding_window"
+
+    response = await client.get("/api/data", headers=headers)
+    assert response.status_code == 429
+    assert response.headers["x-ratelimit-algorithm"] == "sliding_window"
+    assert "retry-after" in response.headers
+
+
+@pytest.mark.asyncio
 async def test_templated_route_uses_route_pattern_for_limits(client):
     rules_path = "tmp-test-data/templated-route/rules.json"
     Path(rules_path).parent.mkdir(parents=True, exist_ok=True)

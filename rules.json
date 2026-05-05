@@ -50,7 +50,7 @@
       "global_limit": {
         "rate": 1.0,
         "capacity": 5,
-        "algorithm": "token_bucket",
+        "algorithm": "sliding_window",
         "fail_mode": "open",
         "description": "Templated account data demo route",
         "tier": "free",

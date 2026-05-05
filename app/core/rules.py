@@ -14,6 +14,8 @@ from app.models.rules import RateLimitConfig, RateLimitRule
 
 # A fallback default rule if nothing matches (e.g., 10 req / sec)
 DEFAULT_RULE = RateLimitRule(rate=10.0, capacity=10)
+RULE_EXPORT_KIND = "rate-limiter.rules.export"
+RULE_EXPORT_SCHEMA_VERSION = 1
 
 
 class RulesLoadError(ValueError):
@@ -237,6 +239,27 @@ class RulesManager:
             "store": self.store.backend,
             "rules": config.model_dump(mode="json"),
         }
+
+    def export_rules(self) -> dict[str, Any]:
+        config = self.config or RateLimitConfig(routes={})
+        return {
+            "kind": RULE_EXPORT_KIND,
+            "schema_version": RULE_EXPORT_SCHEMA_VERSION,
+            "exported_at": int(time.time()),
+            "version": self.current_version(),
+            "store": self.store.backend,
+            "rules": config.model_dump(mode="json"),
+        }
+
+    def import_payload_rules(self, data: dict[str, Any]) -> dict[str, Any]:
+        if "rules" not in data:
+            return data
+
+        rules = data["rules"]
+        if not isinstance(rules, dict):
+            raise RulesLoadError("Imported rules payload must include a rules object")
+
+        return rules
 
     def validate_rules(self, data: dict[str, Any]) -> RateLimitConfig:
         return RateLimitConfig.model_validate(data)

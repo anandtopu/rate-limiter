@@ -26,6 +26,8 @@ async def client(redis_client):
     metrics_registry.reset()
     telemetry_hub.reset()
     telemetry_hub.set_store(None)
+    settings.admin_api_key = "dev-admin-key"
+    settings.admin_api_keys = ""
     settings.hash_identifiers = False
     settings.rule_store_backend = "json"
     settings.rule_store_db_path = "data/rules.sqlite3"
@@ -43,6 +45,8 @@ async def client(redis_client):
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
 
+    settings.admin_api_key = "dev-admin-key"
+    settings.admin_api_keys = ""
     settings.hash_identifiers = False
     settings.rule_store_backend = "json"
     settings.rule_store_db_path = "data/rules.sqlite3"

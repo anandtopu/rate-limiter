@@ -5,6 +5,7 @@ from uuid import uuid4
 import pytest
 
 import app.api.depends as depends
+from app.config import settings
 from app.core.rules import RulesManager, SQLiteRuleStore
 
 ADMIN_HEADERS = {"X-Admin-Key": "dev-admin-key"}
@@ -68,6 +69,106 @@ async def test_admin_auth_required(client):
 
     response = await client.get("/admin/rules", headers={"X-Admin-Key": "wrong"})
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_named_admin_keys_are_accepted(client):
+    settings.admin_api_keys = "primary:primary-key,backup:backup-key"
+
+    response = await client.get("/admin/rules", headers={"X-Admin-Key": "backup-key"})
+
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_legacy_admin_key_still_works_when_named_keys_are_configured(client):
+    settings.admin_api_keys = "primary:primary-key,backup:backup-key"
+
+    response = await client.get("/admin/rules", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_admin_keys_endpoint_lists_names_without_secrets(client):
+    settings.admin_api_keys = "primary:primary-key,backup:backup-key"
+
+    response = await client.get("/admin/keys", headers={"X-Admin-Key": "backup-key"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload == {
+        "active_key": "backup",
+        "configured_keys": ["backup", "default", "primary"],
+    }
+    assert "backup-key" not in response.text
+    assert "primary-key" not in response.text
+    assert "dev-admin-key" not in response.text
+
+
+@pytest.mark.asyncio
+async def test_openapi_includes_admin_examples(client):
+    response = await client.get("/openapi.json")
+
+    assert response.status_code == 200
+    paths = response.json()["paths"]
+
+    rule_examples = paths["/admin/rules"]["put"]["requestBody"]["content"][
+        "application/json"
+    ]["examples"]
+    assert "metadata_policy" in rule_examples
+    metadata_rule = rule_examples["metadata_policy"]["value"]["routes"]["/api/data"][
+        "global_limit"
+    ]
+    assert metadata_rule["owner"] == "api-platform"
+    assert metadata_rule["sensitivity"] == "public"
+
+    dry_run = paths["/admin/rules/dry-run"]["post"]
+    assert "sensitive_policy" in dry_run["requestBody"]["content"]["application/json"][
+        "examples"
+    ]
+    dry_run_examples = dry_run["responses"]["200"]["content"]["application/json"]["examples"]
+    assert dry_run_examples["sensitive_tightening"]["value"]["applied"] is False
+
+    import_examples = paths["/admin/rules/import"]["post"]["requestBody"]["content"][
+        "application/json"
+    ]["examples"]
+    assert import_examples["export_envelope"]["value"]["kind"] == "rate-limiter.rules.export"
+
+    telemetry_params = {
+        parameter["name"]: parameter
+        for parameter in paths["/admin/telemetry/persistent"]["get"]["parameters"]
+    }
+    assert telemetry_params["limit"]["examples"]["recent_50"]["value"] == 50
+    assert telemetry_params["since"]["examples"]["demo_start"]["value"] == 1_734_000_000.0
+
+    rollback_params = paths["/admin/rules/rollback/{version}"]["post"]["parameters"]
+    version_param = next(
+        parameter for parameter in rollback_params if parameter["name"] == "version"
+    )
+    assert version_param["examples"]["initial"]["value"] == 1
+    rollback_examples = paths["/admin/rules/rollback/{version}"]["post"]["responses"]["200"][
+        "content"
+    ]["application/json"]["examples"]
+    assert rollback_examples["restore_initial"]["value"]["rolled_back_from"] == 1
+
+
+@pytest.mark.asyncio
+async def test_named_admin_key_is_default_audit_actor(client):
+    settings.admin_api_keys = "release-bot:release-key"
+    rules_path = runtime_rules_path()
+    write_rules(rules_path, capacity=1)
+    depends.rules_manager = RulesManager(str(rules_path))
+
+    response = await client.post(
+        "/admin/rules/reload",
+        headers={"X-Admin-Key": "release-key"},
+    )
+
+    assert response.status_code == 200
+    history = (await client.get("/admin/rules/history", headers=ADMIN_HEADERS)).json()
+    assert history["versions"][-1]["action"] == "reload"
+    assert history["versions"][-1]["audit"]["actor"] == "release-bot"
 
 
 @pytest.mark.asyncio
@@ -231,6 +332,170 @@ async def test_rule_update_changes_limit_behavior(client):
 
     response = await client.get("/api/data", headers=headers)
     assert response.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_rule_export_returns_portable_envelope(client):
+    rules_path = runtime_rules_path()
+    write_rules(rules_path, capacity=5)
+    depends.rules_manager = RulesManager(str(rules_path))
+
+    response = await client.get("/admin/rules/export", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["kind"] == "rate-limiter.rules.export"
+    assert body["schema_version"] == 1
+    assert body["version"] == 1
+    assert body["store"] == "json"
+    assert isinstance(body["exported_at"], int)
+    assert body["rules"]["routes"]["/api/data"]["global_limit"]["capacity"] == 5
+
+
+@pytest.mark.asyncio
+async def test_rule_import_restores_exported_policy_and_records_history(client):
+    rules_path = runtime_rules_path()
+    write_rules(rules_path, capacity=5)
+    depends.rules_manager = RulesManager(str(rules_path))
+    exported = (await client.get("/admin/rules/export", headers=ADMIN_HEADERS)).json()
+
+    await client.put(
+        "/admin/rules",
+        headers=ADMIN_HEADERS,
+        json={
+            "routes": {
+                "/api/data": {
+                    "global_limit": {
+                        "rate": 0.001,
+                        "capacity": 1,
+                        "fail_mode": "open",
+                    }
+                }
+            }
+        },
+    )
+
+    response = await client.post(
+        "/admin/rules/import",
+        headers={
+            **ADMIN_HEADERS,
+            "X-Audit-Actor": "demo-restore",
+            "X-Audit-Reason": "restore exported demo policy",
+        },
+        json=exported,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["imported"] is True
+    assert response.json()["version"] == 3
+    assert response.json()["rules"]["routes"]["/api/data"]["global_limit"]["capacity"] == 5
+
+    history = (await client.get("/admin/rules/history", headers=ADMIN_HEADERS)).json()
+    assert [entry["action"] for entry in history["versions"]] == [
+        "initial",
+        "update",
+        "import",
+    ]
+    import_entry = history["versions"][-1]
+    assert import_entry["audit"]["actor"] == "demo-restore"
+    assert import_entry["audit"]["reason"] == "restore exported demo policy"
+
+
+@pytest.mark.asyncio
+async def test_rule_import_accepts_raw_rule_payload(client):
+    rules_path = runtime_rules_path()
+    write_rules(rules_path, capacity=5)
+    depends.rules_manager = RulesManager(str(rules_path))
+
+    response = await client.post(
+        "/admin/rules/import",
+        headers=ADMIN_HEADERS,
+        json={
+            "routes": {
+                "/api/data": {
+                    "global_limit": {
+                        "rate": 0.001,
+                        "capacity": 2,
+                        "fail_mode": "open",
+                    }
+                }
+            }
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["imported"] is True
+    assert response.json()["rules"]["routes"]["/api/data"]["global_limit"]["capacity"] == 2
+
+
+@pytest.mark.asyncio
+async def test_rule_import_queues_sensitive_policy_for_approval(client):
+    rules_path = runtime_rules_path()
+    write_rules(rules_path, capacity=5)
+    depends.rules_manager = RulesManager(str(rules_path))
+
+    response = await client.post(
+        "/admin/rules/import",
+        headers={**ADMIN_HEADERS, "X-Audit-Actor": "demo-importer"},
+        json={
+            "kind": "rate-limiter.rules.export",
+            "schema_version": 1,
+            "rules": {
+                "routes": {
+                    "/api/accounts/{account_id}/data": {
+                        "global_limit": {
+                            "rate": 0.001,
+                            "capacity": 1,
+                            "fail_mode": "closed",
+                            "sensitivity": "sensitive",
+                        }
+                    }
+                }
+            },
+        },
+    )
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["imported"] is False
+    assert body["pending_approval"] is True
+    assert body["sensitive_routes"] == ["/api/accounts/{account_id}/data"]
+    assert body["version"] == 1
+    assert "/api/accounts/{account_id}/data" not in depends.rules_manager.snapshot()["rules"][
+        "routes"
+    ]
+
+    pending = (await client.get("/admin/rules/pending", headers=ADMIN_HEADERS)).json()
+    assert pending["requests"][0]["audit"]["actor"] == "demo-importer"
+
+
+@pytest.mark.asyncio
+async def test_rule_import_rejects_invalid_payload_without_applying(client):
+    rules_path = runtime_rules_path()
+    write_rules(rules_path, capacity=2)
+    depends.rules_manager = RulesManager(str(rules_path))
+
+    response = await client.post(
+        "/admin/rules/import",
+        headers=ADMIN_HEADERS,
+        json={
+            "rules": {
+                "routes": {
+                    "/api/data": {
+                        "global_limit": {
+                            "rate": 0,
+                            "capacity": 1,
+                        }
+                    }
+                }
+            }
+        },
+    )
+
+    assert response.status_code == 422
+    snapshot = depends.rules_manager.snapshot()
+    assert snapshot["rules"]["routes"]["/api/data"]["global_limit"]["capacity"] == 2
+    assert snapshot["version"] == 1
 
 
 @pytest.mark.asyncio

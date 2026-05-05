@@ -10,7 +10,7 @@ CYCLONEDX ?= .venv/Scripts/cyclonedx-py.exe
 SBOM_PATH ?= sbom.json
 BASE_URL ?= http://localhost:8001
 
-.PHONY: install dev test lint security sbom format compose-up compose-down load-test redis-outage-demo
+.PHONY: install dev test coverage lint security sbom format compose-up compose-down load-test redis-outage-demo
 
 install:
 	$(UV) pip install --python $(PYTHON) -r requirements-dev.txt
@@ -20,6 +20,9 @@ dev:
 
 test:
 	$(PYTEST) -q
+
+coverage:
+	$(PYTEST) --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml
 
 lint:
 	$(RUFF) check .
