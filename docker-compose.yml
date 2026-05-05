@@ -10,6 +10,8 @@ services:
       - TRACE_OTLP_ENABLED=${TRACE_OTLP_ENABLED:-false}
       - TRACE_OTLP_ENDPOINT=${TRACE_OTLP_ENDPOINT:-http://otel-collector:4318/v1/traces}
       - TRACE_OTLP_TIMEOUT_S=${TRACE_OTLP_TIMEOUT_S:-5}
+      - PERSIST_TELEMETRY=${PERSIST_TELEMETRY:-false}
+      - TELEMETRY_DB_PATH=${TELEMETRY_DB_PATH:-data/telemetry.sqlite3}
     depends_on:
       - redis
 

@@ -30,14 +30,16 @@
 - Add generated SBOM artifact in CI.
 - Add UI controls for rule update audit metadata.
 - Add a local collector compose profile for tracing demos.
+- Add persistent telemetry time-range filters.
 
 ## Remaining
 
-- Add persistent telemetry time-range filters.
+- No tracked backlog items remain.
 
 ## Resume Notes
 
-- The next technical backlog item is persistent telemetry time-range filters.
+- The tracked backlog is complete as of Phase 19.
+- Persisted telemetry now supports `since`, `until`, and `limit` query parameters. The dashboard has range and event-count controls for the persisted telemetry panel.
 - Docker Compose now has a `tracing` profile with an OpenTelemetry collector. Run it with `ENABLE_TRACING=true`, `TRACE_OTLP_ENABLED=true`, and `TRACE_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces`.
 - The demo dashboard now has Rule Change Controls for audited rule updates, reloads, and rollbacks. Mutations send `X-Audit-Actor`, `X-Audit-Source`, and `X-Audit-Reason` from the UI.
 - CI now generates and uploads a reproducible CycloneDX JSON SBOM as the `cyclonedx-sbom` artifact. Local developers can run `make sbom`.

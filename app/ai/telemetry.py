@@ -94,12 +94,16 @@ class TelemetryHub:
 
         self._gc(event.timestamp)
 
-    def persistent_summary(self) -> dict[str, Any]:
+    def persistent_summary(
+        self,
+        since: float | None = None,
+        until: float | None = None,
+    ) -> dict[str, Any]:
         if not self.store:
             return {"enabled": False}
 
         try:
-            summary = self.store.summary()
+            summary = self.store.summary(since=since, until=until)
         except Exception:
             self._persistent_errors += 1
             return {
@@ -114,13 +118,18 @@ class TelemetryHub:
             **summary,
         }
 
-    def persistent_recent(self, limit: int = 100) -> dict[str, Any]:
+    def persistent_recent(
+        self,
+        limit: int = 100,
+        since: float | None = None,
+        until: float | None = None,
+    ) -> dict[str, Any]:
         if not self.store:
             return {"enabled": False, "events": [], "analytics": self._empty_persistent_analytics()}
 
         try:
-            events = self.store.recent(limit=limit)
-            analytics = self.store.analytics(limit=min(limit, 10))
+            events = self.store.recent(limit=limit, since=since, until=until)
+            analytics = self.store.analytics(limit=min(limit, 10), since=since, until=until)
         except Exception:
             self._persistent_errors += 1
             events = []

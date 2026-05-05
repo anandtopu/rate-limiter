@@ -243,6 +243,13 @@ input {
   margin: 0 0 12px;
 }
 
+.telemetry-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
 .audit-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -375,6 +382,7 @@ pre {
   .grid,
   .headers,
   .summary-strip,
+  .telemetry-controls,
   .audit-grid {
     grid-template-columns: 1fr;
   }

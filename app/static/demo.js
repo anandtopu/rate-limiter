@@ -35,6 +35,8 @@ const els = {
   persistedEventsValue: document.querySelector("#persistedEventsValue"),
   persistedDeniedValue: document.querySelector("#persistedDeniedValue"),
   persistedFailOpenValue: document.querySelector("#persistedFailOpenValue"),
+  persistentRangeSelect: document.querySelector("#persistentRangeSelect"),
+  persistentLimitInput: document.querySelector("#persistentLimitInput"),
   persistentTelemetryOutput: document.querySelector("#persistentTelemetryOutput"),
   recommendationsOutput: document.querySelector("#recommendationsOutput"),
   rulesOutput: document.querySelector("#rulesOutput"),
@@ -205,6 +207,7 @@ function renderPersistentTelemetry(body) {
   els.persistentTelemetryOutput.textContent = pretty({
     enabled: Boolean(summary.enabled),
     path: summary.path,
+    filters: body.filters || {},
     persistent_errors: summary.persistent_errors ?? 0,
     routes: body.analytics?.routes || [],
     top_offenders: body.analytics?.top_offenders || [],
@@ -212,8 +215,22 @@ function renderPersistentTelemetry(body) {
   });
 }
 
+function persistentTelemetryQuery() {
+  const params = new URLSearchParams();
+  const limit = Number.parseInt(els.persistentLimitInput.value, 10);
+  const rangeSeconds = Number.parseInt(els.persistentRangeSelect.value, 10);
+
+  params.set("limit", String(Number.isInteger(limit) ? Math.max(1, Math.min(500, limit)) : 10));
+
+  if (Number.isInteger(rangeSeconds) && rangeSeconds > 0) {
+    params.set("since", String(Math.floor(Date.now() / 1000) - rangeSeconds));
+  }
+
+  return params.toString();
+}
+
 async function loadPersistentTelemetry() {
-  const response = await fetch("/admin/telemetry/persistent?limit=10", {
+  const response = await fetch(`/admin/telemetry/persistent?${persistentTelemetryQuery()}`, {
     headers: requestHeaders(true),
   });
   renderPersistentTelemetry(await readJson(response));

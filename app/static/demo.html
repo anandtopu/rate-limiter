@@ -95,6 +95,21 @@
             <div><dt>Denied</dt><dd id="persistedDeniedValue">-</dd></div>
             <div><dt>Fail Open</dt><dd id="persistedFailOpenValue">-</dd></div>
           </dl>
+          <div class="telemetry-controls">
+            <label>
+              <span>Range</span>
+              <select id="persistentRangeSelect">
+                <option value="300">Last 5m</option>
+                <option value="3600" selected>Last 1h</option>
+                <option value="86400">Last 24h</option>
+                <option value="">All time</option>
+              </select>
+            </label>
+            <label>
+              <span>Events</span>
+              <input id="persistentLimitInput" type="number" min="1" max="500" step="1" value="10" />
+            </label>
+          </div>
           <pre id="persistentTelemetryOutput" class="json-output">{}</pre>
         </article>
 

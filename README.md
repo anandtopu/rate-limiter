@@ -256,7 +256,7 @@ Narrow layout preview:
 
 ![Rate limiter demo dashboard narrow preview](docs/assets/demo-dashboard-mobile.png)
 
-Use the dashboard to send single requests, send a burst, compare free and premium clients, inspect rate-limit headers, load admin-only signals/persisted telemetry/rules/history, and dry-run proposed policy changes with `X-Admin-Key`.
+Use the dashboard to send single requests, send a burst, compare free and premium clients, inspect rate-limit headers, load admin-only signals/persisted telemetry/rules/history, filter persisted telemetry by time range, and dry-run proposed policy changes with `X-Admin-Key`.
 
 Trigger the global `/api/data` limit:
 
@@ -285,6 +285,14 @@ View persisted telemetry when `PERSIST_TELEMETRY=true`:
 ```bash
 curl http://localhost:8001/admin/telemetry/persistent -H "X-Admin-Key: dev-admin-key"
 ```
+
+Filter persisted telemetry with Unix timestamp bounds:
+
+```bash
+curl "http://localhost:8001/admin/telemetry/persistent?since=1777940000&limit=25" -H "X-Admin-Key: dev-admin-key"
+```
+
+For Docker demos, start the stack with `PERSIST_TELEMETRY=true` to enable SQLite-backed persisted telemetry inside the app container.
 
 Generate recommendations:
 
@@ -324,5 +332,6 @@ Completed in this upgrade pass:
 - Phase 16: generated CycloneDX SBOM artifact in CI and local developer workflow.
 - Phase 17: dashboard controls for audited rule updates, reloads, and rollbacks.
 - Phase 18: local OpenTelemetry collector compose profile for tracing demos.
+- Phase 19: persistent telemetry time-range filters in the API and dashboard.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.

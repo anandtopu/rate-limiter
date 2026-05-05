@@ -42,6 +42,7 @@ Last updated: 2026-05-05
 | 16 | Done | Generated CycloneDX SBOM artifact in CI and local developer workflow. |
 | 17 | Done | Dashboard controls for audited rule updates, reloads, and rollbacks. |
 | 18 | Done | Local OpenTelemetry collector compose profile for tracing demos. |
+| 19 | Done | Persistent telemetry time-range filters in the API and dashboard. |
 
 ## Verification Commands
 
@@ -68,4 +69,4 @@ curl.exe -s http://localhost:8001/admin/telemetry/persistent -H "X-Admin-Key: de
 
 ## Next Recommended Work
 
-1. Add persistent telemetry time-range filters.
+1. No tracked backlog items remain.

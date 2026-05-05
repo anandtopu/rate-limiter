@@ -29,6 +29,26 @@ def clamp_limit(limit: int) -> int:
     return max(1, min(limit, 500))
 
 
+def validate_time_range(since: float | None, until: float | None) -> None:
+    if since is not None and since < 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="since must be a non-negative Unix timestamp",
+        )
+
+    if until is not None and until < 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="until must be a non-negative Unix timestamp",
+        )
+
+    if since is not None and until is not None and since > until:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="since must be less than or equal to until",
+        )
+
+
 def audit_metadata(request: Request) -> dict[str, Any]:
     client_host = request.client.host if request.client else None
     return {
@@ -46,10 +66,25 @@ async def get_rules():
 
 
 @router.get("/telemetry/persistent")
-async def get_persistent_telemetry(limit: int = 100):
+async def get_persistent_telemetry(
+    limit: int = 100,
+    since: float | None = None,
+    until: float | None = None,
+):
+    validate_time_range(since=since, until=until)
+    clamped_limit = clamp_limit(limit)
     return {
-        "summary": telemetry_hub.persistent_summary(),
-        **telemetry_hub.persistent_recent(limit=clamp_limit(limit)),
+        "filters": {
+            "limit": clamped_limit,
+            "since": since,
+            "until": until,
+        },
+        "summary": telemetry_hub.persistent_summary(since=since, until=until),
+        **telemetry_hub.persistent_recent(
+            limit=clamped_limit,
+            since=since,
+            until=until,
+        ),
     }
 
 

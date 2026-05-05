@@ -67,11 +67,38 @@ class SQLiteTelemetryStore:
                 ),
             )
 
-    def recent(self, limit: int = 100) -> list[dict[str, Any]]:
+    def _time_filter(
+        self,
+        since: float | None = None,
+        until: float | None = None,
+    ) -> tuple[str, list[float]]:
+        clauses = []
+        params: list[float] = []
+
+        if since is not None:
+            clauses.append("timestamp >= ?")
+            params.append(since)
+
+        if until is not None:
+            clauses.append("timestamp <= ?")
+            params.append(until)
+
+        if not clauses:
+            return "", params
+
+        return f"WHERE {' AND '.join(clauses)}", params
+
+    def recent(
+        self,
+        limit: int = 100,
+        since: float | None = None,
+        until: float | None = None,
+    ) -> list[dict[str, Any]]:
+        where_sql, params = self._time_filter(since=since, until=until)
         with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
-                """
+                f"""
                 SELECT
                     id,
                     timestamp,
@@ -84,10 +111,11 @@ class SQLiteTelemetryStore:
                     retry_after_s,
                     redis_fail_open
                 FROM rate_limit_events
+                {where_sql}
                 ORDER BY id DESC
                 LIMIT ?
                 """,
-                (limit,),
+                (*params, limit),
             ).fetchall()
 
         return [
@@ -99,17 +127,24 @@ class SQLiteTelemetryStore:
             for row in rows
         ]
 
-    def summary(self) -> dict[str, Any]:
+    def summary(
+        self,
+        since: float | None = None,
+        until: float | None = None,
+    ) -> dict[str, Any]:
+        where_sql, params = self._time_filter(since=since, until=until)
         with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             row = conn.execute(
-                """
+                f"""
                 SELECT
                     COUNT(*) AS events,
                     SUM(CASE WHEN allowed = 0 THEN 1 ELSE 0 END) AS denied,
                     SUM(CASE WHEN redis_fail_open = 1 THEN 1 ELSE 0 END) AS redis_fail_open
                 FROM rate_limit_events
-                """
+                {where_sql}
+                """,
+                params,
             ).fetchone()
 
         return {
@@ -119,35 +154,43 @@ class SQLiteTelemetryStore:
             "redis_fail_open": int(row["redis_fail_open"] or 0),
         }
 
-    def analytics(self, limit: int = 5) -> dict[str, Any]:
+    def analytics(
+        self,
+        limit: int = 5,
+        since: float | None = None,
+        until: float | None = None,
+    ) -> dict[str, Any]:
+        where_sql, params = self._time_filter(since=since, until=until)
         with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             routes = conn.execute(
-                """
+                f"""
                 SELECT
                     route_path,
                     COUNT(*) AS requests,
                     SUM(CASE WHEN allowed = 0 THEN 1 ELSE 0 END) AS denied,
                     SUM(CASE WHEN redis_fail_open = 1 THEN 1 ELSE 0 END) AS redis_fail_open
                 FROM rate_limit_events
+                {where_sql}
                 GROUP BY route_path
                 ORDER BY requests DESC, route_path ASC
                 LIMIT ?
                 """,
-                (limit,),
+                (*params, limit),
             ).fetchall()
             offenders = conn.execute(
-                """
+                f"""
                 SELECT
                     identifier,
                     COUNT(*) AS denied
                 FROM rate_limit_events
                 WHERE allowed = 0
+                {"AND " + where_sql.removeprefix("WHERE ") if where_sql else ""}
                 GROUP BY identifier
                 ORDER BY denied DESC, identifier ASC
                 LIMIT ?
                 """,
-                (limit,),
+                (*params, limit),
             ).fetchall()
 
         return {
