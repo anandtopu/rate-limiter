@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rate Limiter Demo</title>
+    <link rel="stylesheet" href="/static/demo.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Control Plane + Enforcement API</p>
+          <h1>Rate Limiter Demo</h1>
+        </div>
+        <div class="status-strip" aria-live="polite">
+          <span id="readyDot" class="dot"></span>
+          <span id="readyText">Checking readiness</span>
+        </div>
+      </header>
+
+      <section class="toolbar" aria-label="Request controls">
+        <label>
+          <span>Client</span>
+          <select id="clientSelect">
+            <option value="">Anonymous</option>
+            <option value="free_user_key" selected>Free client</option>
+            <option value="premium_user_key">Premium client</option>
+            <option value="abusive_user_key">Abusive client</option>
+          </select>
+        </label>
+
+        <label>
+          <span>Endpoint</span>
+          <select id="endpointSelect">
+            <option value="/api/data">/api/data</option>
+            <option value="/api/limited-health">/api/limited-health</option>
+          </select>
+        </label>
+
+        <label>
+          <span>Admin key</span>
+          <input id="adminKeyInput" type="password" autocomplete="off" placeholder="X-Admin-Key" />
+        </label>
+
+        <div class="actions">
+          <button id="sendOneBtn" type="button">Send</button>
+          <button id="burstBtn" type="button">Burst</button>
+          <button id="refreshBtn" type="button">Refresh</button>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="panel response-panel">
+          <div class="panel-heading">
+            <h2>Response</h2>
+            <span id="statusBadge" class="badge">Idle</span>
+          </div>
+          <div class="meter" aria-hidden="true">
+            <span id="remainingMeter"></span>
+          </div>
+          <dl class="headers">
+            <div><dt>Limit</dt><dd id="limitValue">-</dd></div>
+            <div><dt>Remaining</dt><dd id="remainingValue">-</dd></div>
+            <div><dt>Reset</dt><dd id="resetValue">-</dd></div>
+            <div><dt>Retry</dt><dd id="retryValue">-</dd></div>
+            <div><dt>Request ID</dt><dd id="requestIdValue">-</dd></div>
+          </dl>
+          <pre id="bodyOutput" class="body-output">{}</pre>
+        </article>
+
+        <article class="panel timeline-panel">
+          <div class="panel-heading">
+            <h2>Timeline</h2>
+            <span id="eventCount" class="badge">0</span>
+          </div>
+          <ol id="timeline" class="timeline"></ol>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Signals</h2>
+            <button id="signalsBtn" type="button" class="icon-button">Load</button>
+          </div>
+          <pre id="signalsOutput" class="json-output">{}</pre>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Persisted Telemetry</h2>
+            <button id="persistentTelemetryBtn" type="button" class="icon-button">Load</button>
+          </div>
+          <dl class="summary-strip">
+            <div><dt>Events</dt><dd id="persistedEventsValue">-</dd></div>
+            <div><dt>Denied</dt><dd id="persistedDeniedValue">-</dd></div>
+            <div><dt>Fail Open</dt><dd id="persistedFailOpenValue">-</dd></div>
+          </dl>
+          <pre id="persistentTelemetryOutput" class="json-output">{}</pre>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <h2>Recommendations</h2>
+            <button id="recommendationsBtn" type="button" class="icon-button">Run</button>
+          </div>
+          <pre id="recommendationsOutput" class="json-output">{}</pre>
+        </article>
+
+        <article class="panel rules-panel">
+          <div class="panel-heading">
+            <h2>Active Rules</h2>
+            <button id="rulesBtn" type="button" class="icon-button">Load</button>
+          </div>
+          <pre id="rulesOutput" class="json-output">{}</pre>
+        </article>
+
+        <article class="panel rules-panel">
+          <div class="panel-heading">
+            <h2>Rule History</h2>
+            <button id="historyBtn" type="button" class="icon-button">Load</button>
+          </div>
+          <pre id="historyOutput" class="json-output">{}</pre>
+        </article>
+
+        <article class="panel rules-panel">
+          <div class="panel-heading">
+            <h2>Policy Dry Run</h2>
+            <button id="dryRunBtn" type="button" class="icon-button">Run</button>
+          </div>
+          <textarea id="dryRunInput" class="json-input" spellcheck="false"></textarea>
+          <pre id="dryRunOutput" class="json-output">{}</pre>
+        </article>
+
+        <article class="panel rules-panel">
+          <div class="panel-heading">
+            <h2>Rule Change Controls</h2>
+            <div class="actions compact-actions">
+              <button id="updateRulesBtn" type="button" class="icon-button">Apply</button>
+              <button id="reloadRulesBtn" type="button" class="icon-button">Reload</button>
+              <button id="rollbackRulesBtn" type="button" class="icon-button">Rollback</button>
+            </div>
+          </div>
+          <div class="audit-grid">
+            <label>
+              <span>Actor</span>
+              <input id="auditActorInput" type="text" autocomplete="off" value="demo-admin" />
+            </label>
+            <label>
+              <span>Source</span>
+              <input id="auditSourceInput" type="text" autocomplete="off" value="demo-dashboard" />
+            </label>
+            <label>
+              <span>Reason</span>
+              <input id="auditReasonInput" type="text" autocomplete="off" placeholder="Change reason" />
+            </label>
+            <label>
+              <span>Rollback version</span>
+              <input id="rollbackVersionInput" type="number" min="1" step="1" placeholder="1" />
+            </label>
+          </div>
+          <pre id="ruleChangeOutput" class="json-output">{}</pre>
+        </article>
+      </section>
+    </main>
+
+    <script src="/static/demo.js"></script>
+  </body>
+</html>

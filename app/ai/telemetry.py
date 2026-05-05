@@ -1,7 +1,7 @@
 import time
-from collections import Counter, defaultdict, deque
+from collections import Counter, deque
 from dataclasses import dataclass
-from typing import Any, Deque, Dict, List, Optional, Tuple
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -13,7 +13,7 @@ class RateLimitEvent:
     remaining: int
     capacity: int
     rate: float
-    retry_after_s: Optional[int]
+    retry_after_s: int | None
     redis_fail_open: bool
 
 
@@ -21,21 +21,33 @@ class TelemetryHub:
     def __init__(self, window_seconds: int = 300, max_events: int = 50_000):
         self.window_seconds = window_seconds
         self.max_events = max_events
-        self._events: Deque[RateLimitEvent] = deque()
+        self.store: Any = None
+        self._persistent_errors: int = 0
+        self._events: deque[RateLimitEvent] = deque()
 
         self._total_by_route: Counter[str] = Counter()
         self._limited_by_route: Counter[str] = Counter()
         self._limited_by_identifier: Counter[str] = Counter()
-        self._limited_by_route_identifier: Counter[Tuple[str, str]] = Counter()
+        self._limited_by_route_identifier: Counter[tuple[str, str]] = Counter()
 
         self._redis_fail_open_by_route: Counter[str] = Counter()
         self._redis_fail_open_total: int = 0
 
-        self._last_recommendations: Dict[str, Any] = {"generated_at": 0, "items": []}
+        self._last_recommendations: dict[str, Any] = {"generated_at": 0, "items": []}
+
+    def reset(self) -> None:
+        store = self.store
+        self.__init__(window_seconds=self.window_seconds, max_events=self.max_events)
+        self.store = store
+
+    def set_store(self, store: Any) -> None:
+        self.store = store
 
     def _gc(self, now: float) -> None:
         cutoff = now - self.window_seconds
-        while self._events and (self._events[0].timestamp < cutoff or len(self._events) > self.max_events):
+        while self._events and (
+            self._events[0].timestamp < cutoff or len(self._events) > self.max_events
+        ):
             ev = self._events.popleft()
             self._total_by_route[ev.route_path] -= 1
             if self._total_by_route[ev.route_path] <= 0:
@@ -74,9 +86,52 @@ class TelemetryHub:
             self._redis_fail_open_total += 1
             self._redis_fail_open_by_route[event.route_path] += 1
 
+        if self.store:
+            try:
+                self.store.record(event)
+            except Exception:
+                self._persistent_errors += 1
+
         self._gc(event.timestamp)
 
-    def snapshot(self, top_n: int = 10) -> Dict[str, Any]:
+    def persistent_summary(self) -> dict[str, Any]:
+        if not self.store:
+            return {"enabled": False}
+
+        try:
+            summary = self.store.summary()
+        except Exception:
+            self._persistent_errors += 1
+            return {
+                "enabled": True,
+                "status": "unavailable",
+                "persistent_errors": self._persistent_errors,
+            }
+
+        return {
+            "enabled": True,
+            "persistent_errors": self._persistent_errors,
+            **summary,
+        }
+
+    def persistent_recent(self, limit: int = 100) -> dict[str, Any]:
+        if not self.store:
+            return {"enabled": False, "events": [], "analytics": self._empty_persistent_analytics()}
+
+        try:
+            events = self.store.recent(limit=limit)
+            analytics = self.store.analytics(limit=min(limit, 10))
+        except Exception:
+            self._persistent_errors += 1
+            events = []
+            analytics = self._empty_persistent_analytics()
+
+        return {"enabled": True, "events": events, "analytics": analytics}
+
+    def _empty_persistent_analytics(self) -> dict[str, list[Any]]:
+        return {"routes": [], "top_offenders": []}
+
+    def snapshot(self, top_n: int = 10) -> dict[str, Any]:
         now = time.time()
         self._gc(now)
 
@@ -114,11 +169,16 @@ class TelemetryHub:
             "recommendations": self._last_recommendations,
         }
 
-    def generate_recommendations(self) -> Dict[str, Any]:
+    def recent_events(self) -> list[RateLimitEvent]:
+        now = time.time()
+        self._gc(now)
+        return list(self._events)
+
+    def generate_recommendations(self) -> dict[str, Any]:
         now = time.time()
         self._gc(now)
 
-        items: List[Dict[str, Any]] = []
+        items: list[dict[str, Any]] = []
 
         for route, total in self._total_by_route.items():
             limited = self._limited_by_route.get(route, 0)
@@ -138,11 +198,23 @@ class TelemetryHub:
                     },
                     "recommendation": {
                         "action": "review_limits",
-                        "message": "High 429 ratio suggests rule may be too strict for current traffic or clients are misbehaving.",
+                        "message": (
+                            "High 429 ratio suggests rule may be too strict for current "
+                            "traffic or clients are misbehaving."
+                        ),
                         "suggested_next_steps": [
-                            "Check if this endpoint is called by polling loops or retries without backoff",
-                            "If traffic is legitimate, consider increasing capacity (burst) or rate (sustained)",
-                            "If traffic is abusive, add identifier-specific overrides or upstream WAF rules",
+                            (
+                                "Check if this endpoint is called by polling loops or "
+                                "retries without backoff"
+                            ),
+                            (
+                                "If traffic is legitimate, consider increasing capacity "
+                                "(burst) or rate (sustained)"
+                            ),
+                            (
+                                "If traffic is abusive, add identifier-specific overrides "
+                                "or upstream WAF rules"
+                            ),
                         ],
                     },
                 })
@@ -154,7 +226,10 @@ class TelemetryHub:
                 "signal": {"redis_fail_open_total": self._redis_fail_open_total},
                 "recommendation": {
                     "action": "investigate_redis",
-                    "message": "Fail-open events detected. Rate limiting may be bypassed when Redis is unhealthy.",
+                    "message": (
+                        "Fail-open events detected. Rate limiting may be bypassed when "
+                        "Redis is unhealthy."
+                    ),
                     "suggested_next_steps": [
                         "Check Redis connectivity / auth / maxclients",
                         "Add alerting on redis_fail_open_total",
@@ -178,7 +253,7 @@ def record_rate_limit_decision(
     remaining: int,
     capacity: int,
     rate: float,
-    retry_after_s: Optional[int],
+    retry_after_s: int | None,
     redis_fail_open: bool,
 ) -> None:
     telemetry_hub.record(

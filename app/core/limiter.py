@@ -1,8 +1,13 @@
+import math
 import time
-import redis.asyncio as redis
-from typing import Tuple
+from dataclasses import dataclass
+from typing import Literal
 
-TOKEN_BUCKET_SCRIPT = """
+import redis.asyncio as redis
+
+# Redis Lua script uses token bucket field names; it does not contain credentials.
+TOKEN_BUCKET_SCRIPT = (  # nosec B105
+    """
 local rate = tonumber(ARGV[1])
 local capacity = tonumber(ARGV[2])
 local now = tonumber(ARGV[3])
@@ -33,19 +38,101 @@ if allowed then
   new_tokens = filled_tokens - requested
 end
 
+local missing_tokens = requested - filled_tokens
+local retry_after = 0
+if not allowed then
+  retry_after = math.ceil(missing_tokens / rate)
+  if retry_after < 1 then
+    retry_after = 1
+  end
+end
+
+local time_to_full = (capacity - new_tokens) / rate
+local reset_timestamp = math.ceil(now + time_to_full)
+
 redis.call("HSET", KEYS[1], "tokens", new_tokens)
 redis.call("HSET", KEYS[1], "last_refill", now)
 redis.call("EXPIRE", KEYS[1], ttl)
 
-return { allowed and 1 or 0, new_tokens }
+return { allowed and 1 or 0, tostring(new_tokens), retry_after, reset_timestamp }
 """
+)
+
+FIXED_WINDOW_SCRIPT = """
+local capacity = tonumber(ARGV[1])
+local now = tonumber(ARGV[2])
+local requested = tonumber(ARGV[3])
+local window_seconds = tonumber(ARGV[4])
+
+local current = tonumber(redis.call("GET", KEYS[1]))
+if current == nil then
+  current = 0
+end
+
+local ttl = tonumber(redis.call("TTL", KEYS[1]))
+if ttl == nil or ttl < 0 then
+  ttl = window_seconds
+end
+
+local allowed = (current + requested) <= capacity
+if allowed then
+  current = redis.call("INCRBY", KEYS[1], requested)
+  if current == requested then
+    redis.call("EXPIRE", KEYS[1], window_seconds)
+    ttl = window_seconds
+  else
+    ttl = tonumber(redis.call("TTL", KEYS[1]))
+    if ttl == nil or ttl < 0 then
+      ttl = window_seconds
+      redis.call("EXPIRE", KEYS[1], window_seconds)
+    end
+  end
+end
+
+local remaining = capacity - current
+if remaining < 0 then
+  remaining = 0
+end
+
+local retry_after = 0
+if not allowed then
+  retry_after = ttl
+  if retry_after < 1 then
+    retry_after = 1
+  end
+end
+
+local reset_timestamp = math.ceil(now + ttl)
+
+return { allowed and 1 or 0, tostring(remaining), retry_after, reset_timestamp }
+"""
+
+
+@dataclass(frozen=True)
+class LimiterResult:
+    allowed: bool
+    remaining: float
+    retry_after_s: int | None
+    reset_timestamp: int
+    redis_failed: bool = False
+    redis_fail_open: bool = False
+
 
 class RedisRateLimiter:
     def __init__(self, redis_client: redis.Redis):
         self.redis = redis_client
-        self.script = self.redis.register_script(TOKEN_BUCKET_SCRIPT)
+        self.token_bucket_script = self.redis.register_script(TOKEN_BUCKET_SCRIPT)
+        self.fixed_window_script = self.redis.register_script(FIXED_WINDOW_SCRIPT)
 
-    async def is_allowed(self, key: str, rate: float, capacity: int, requested: int = 1) -> Tuple[bool, int, bool]:
+    async def is_allowed(
+        self,
+        key: str,
+        rate: float,
+        capacity: int,
+        requested: int = 1,
+        fail_mode: Literal["open", "closed"] = "open",
+        algorithm: Literal["token_bucket", "fixed_window"] = "token_bucket",
+    ) -> LimiterResult:
         """
         Check if a request is allowed based on the Token Bucket algorithm.
         rate: tokens per second
@@ -54,15 +141,46 @@ class RedisRateLimiter:
         now = time.time()
         
         try:
-            result = await self.script(
-                keys=[key],
-                args=[rate, capacity, now, requested]
+            if algorithm == "fixed_window":
+                window_seconds = max(1, math.ceil(capacity / rate))
+                result = await self.fixed_window_script(
+                    keys=[key],
+                    args=[capacity, now, requested, window_seconds],
+                )
+            else:
+                result = await self.token_bucket_script(
+                    keys=[key],
+                    args=[rate, capacity, now, requested],
+                )
+            allowed_int, updated_tokens, retry_after_s, reset_timestamp = result
+            allowed = bool(int(allowed_int))
+            return LimiterResult(
+                allowed=allowed,
+                remaining=max(0.0, float(updated_tokens)),
+                retry_after_s=None if allowed else int(retry_after_s),
+                reset_timestamp=int(reset_timestamp),
             )
-            allowed_int, updated_tokens = result
-            # updated_tokens might be a float in some Redis Lua returns, depending on math
-            return bool(allowed_int), int(updated_tokens), False
         except redis.RedisError as e:
-            # Concept: Fail-open strategy. If Redis is down, we allow the request.
-            # Logging should catch this in production.
-            print(f"Redis error: {e}. Failing open.")
-            return True, capacity - requested, True
+            print(f"Redis error: {e}. Failing {fail_mode}.")
+            if fail_mode == "closed":
+                return LimiterResult(
+                    allowed=False,
+                    remaining=0,
+                    retry_after_s=1,
+                    reset_timestamp=math.ceil(now + 1),
+                    redis_failed=True,
+                    redis_fail_open=False,
+                )
+
+            remaining = max(0, capacity - requested)
+            time_to_full = math.ceil(capacity / rate) if algorithm == "fixed_window" else (
+                capacity - remaining
+            ) / rate
+            return LimiterResult(
+                allowed=True,
+                remaining=remaining,
+                retry_after_s=None,
+                reset_timestamp=math.ceil(now + time_to_full),
+                redis_failed=True,
+                redis_fail_open=True,
+            )
