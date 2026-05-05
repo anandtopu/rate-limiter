@@ -38,11 +38,30 @@
 
 ## Remaining
 
-- No tracked backlog items remain.
+### P0: Next Implementation Candidates
+
+- Add a sensitive-rule approval workflow: proposed changes touching `sensitivity: "sensitive"` routes should be saved as pending changes and require a second admin approval before apply.
+- Add a durable rule-store option backed by SQLite or Redis, while keeping `rules.json` as the simple demo/default path.
+- Add dashboard support for pending rule changes, including approve/reject actions and visible audit metadata.
+- Add a dedicated rule-change audit view that filters history by route, actor, action, sensitivity, and time range.
+
+### P1: Product And Demo Polish
+
+- Add a Redis outage demo mode or scripted scenario so reviewers can see fail-open and fail-closed behavior without manually breaking Redis.
+- Add a recommendation-to-dry-run flow that turns AI recommendations into editable proposed rule JSON without applying changes automatically.
+- Add benchmark output from `scripts/load_test.py` to documentation, covering free, premium, abusive, and templated-route scenarios.
+- Add coverage reporting in CI so test depth is visible alongside lint, security scan, and SBOM checks.
+
+### P2: Advanced Platform Enhancements
+
+- Add a sliding-window algorithm behind the existing per-rule algorithm selection.
+- Add admin key rotation support or multiple named admin keys for local/demo environments.
+- Add rule import/export helpers for sharing demo policies and restoring known-good demo states.
+- Add OpenAPI examples for admin rule management, dry runs, rollback, persistent telemetry filters, and metadata fields.
 
 ## Resume Notes
 
-- The tracked backlog is complete as of Phase 19. Phase 20 adds follow-up operations polish from the PRD gap list.
+- The original portfolio upgrade backlog is complete through Phase 23. The remaining items above are the next implementation queue, not unfinished work from the original MVP pass.
 - Docker Compose now checks Redis with `redis-cli ping`, waits for Redis before starting `web`, and checks the app through `/ready`.
 - Anonymous client IP resolution now ignores `X-Forwarded-For` unless the direct peer is included in `TRUSTED_PROXY_IPS`.
 - Rate-limit rules and telemetry now use FastAPI route templates, such as `/api/accounts/{account_id}/data`, when a route has path parameters.

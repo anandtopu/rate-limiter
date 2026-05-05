@@ -73,4 +73,8 @@ curl.exe -s http://localhost:8001/admin/telemetry/persistent -H "X-Admin-Key: de
 
 ## Next Recommended Work
 
-1. No tracked backlog items remain.
+1. Implement sensitive-rule approval workflow for changes touching `sensitivity: "sensitive"` routes.
+2. Add a durable rule-store option backed by SQLite or Redis while preserving the JSON demo path.
+3. Extend the dashboard with pending rule approvals and a filterable rule-change audit view.
+4. Add a Redis outage demo scenario for fail-open and fail-closed behavior.
+5. Add recommendation-to-dry-run support so AI suggestions become editable proposed policy JSON.

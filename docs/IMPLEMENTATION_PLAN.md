@@ -253,49 +253,30 @@ Use FastAPI static files plus one lightweight HTML/CSS/JavaScript page:
 
 ## 8. Suggested Backlog
 
-### P0
+### Original MVP Backlog
 
-- Correct `Retry-After`.
-- Validate positive rule values.
-- Add admin API key protection for AI/admin endpoints.
-- Add rule validation endpoint.
-- Update README positioning.
+The original MVP and follow-up backlog has been implemented through Phase 23. Completed work includes limiter correctness, admin APIs, dashboard, metrics, tracing, persistent telemetry, CI/security checks, rule history, policy dry runs, multiple algorithms, proxy trust, templated route keys, and rule metadata.
 
-### P1
+### P0: Next Implementation Candidates
 
-- Add rule update/reload APIs.
-- Add demo dashboard.
-- Add metrics endpoint.
-- Add request ID middleware and structured logs.
-- Split platform health from rate-limited demo health.
+- Add a sensitive-rule approval workflow: proposed changes touching `sensitivity: "sensitive"` routes should be saved as pending changes and require a second admin approval before apply.
+- Add a durable rule-store option backed by SQLite or Redis, while keeping `rules.json` as the simple demo/default path.
+- Add dashboard support for pending rule changes, including approve/reject actions and visible audit metadata.
+- Add a dedicated rule-change audit view that filters history by route, actor, action, sensitivity, and time range.
 
-### P2
+### P1: Product And Demo Polish
 
-- Add route-level fail-open/fail-closed.
-- Hash identifiers in Redis keys and telemetry.
-- Add CI workflow, linting, dependency audit, and static security scanning.
-- Add `.env.example`.
-- Add load-test script.
+- Add a Redis outage demo mode or scripted scenario so reviewers can see fail-open and fail-closed behavior without manually breaking Redis.
+- Add a recommendation-to-dry-run flow that turns AI recommendations into editable proposed rule JSON without applying changes automatically.
+- Add benchmark output from `scripts/load_test.py` to documentation, covering free, premium, abusive, and templated-route scenarios.
+- Add coverage reporting in CI so test depth is visible alongside lint, security scan, and SBOM checks.
 
-### P3
+### P2: Advanced Platform Enhancements
 
-- Add rule version history. (Implemented in Phase 6)
-- Add policy dry-run mode. (Implemented in Phase 7)
-- Add multiple limiter algorithms. (Implemented in Phase 8)
-- Add OpenTelemetry tracing. (Implemented in Phase 9)
-- Persist telemetry in Redis streams or SQLite. (SQLite implemented in Phase 10)
-- Add dependency/security scanning in CI. (Implemented in Phase 12)
-- Add richer rule audit metadata such as actor, source, and reason. (Implemented in Phase 13)
-- Add optional OpenTelemetry OTLP exporter configuration. (Implemented in Phase 14)
-- Add richer persisted telemetry summaries in the dashboard. (Implemented in Phase 15)
-- Add generated SBOM artifact in CI. (Implemented in Phase 16)
-- Add UI controls for rule update audit metadata. (Implemented in Phase 17)
-- Add a local collector compose profile for tracing demos. (Implemented in Phase 18)
-- Add persistent telemetry time-range filters. (Implemented in Phase 19)
-- Add Docker Compose health checks for Redis and the web app. (Implemented in Phase 20)
-- Add trusted reverse-proxy policy for `X-Forwarded-For` client identity. (Implemented in Phase 21)
-- Add templated route keys for path-parameter routes. (Implemented in Phase 22)
-- Add owner and sensitivity metadata for rules and observability. (Implemented in Phase 23)
+- Add a sliding-window algorithm behind the existing per-rule algorithm selection.
+- Add admin key rotation support or multiple named admin keys for local/demo environments.
+- Add rule import/export helpers for sharing demo policies and restoring known-good demo states.
+- Add OpenAPI examples for admin rule management, dry runs, rollback, persistent telemetry filters, and metadata fields.
 
 ## 9. Proposed Milestones
 
