@@ -290,6 +290,7 @@ Use FastAPI static files plus one lightweight HTML/CSS/JavaScript page:
 - Add richer persisted telemetry summaries in the dashboard. (Implemented in Phase 15)
 - Add generated SBOM artifact in CI. (Implemented in Phase 16)
 - Add UI controls for rule update audit metadata. (Implemented in Phase 17)
+- Add a local collector compose profile for tracing demos. (Implemented in Phase 18)
 
 ## 9. Proposed Milestones
 

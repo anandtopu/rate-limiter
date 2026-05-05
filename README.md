@@ -86,10 +86,30 @@ Docker Compose starts two services:
 
 - `web`: FastAPI app at `http://localhost:8001`
 - `redis`: Redis at `localhost:6378`
+- `otel-collector`: optional OpenTelemetry collector, enabled with the `tracing` profile
 
 ```bash
 docker compose up --build
 ```
+
+Run the app with the local OpenTelemetry collector profile:
+
+```powershell
+$env:ENABLE_TRACING="true"
+$env:TRACE_CONSOLE_EXPORTER="false"
+$env:TRACE_OTLP_ENABLED="true"
+$env:TRACE_OTLP_ENDPOINT="http://otel-collector:4318/v1/traces"
+docker-compose --profile tracing up --build
+```
+
+In another terminal, generate a request and watch collector logs:
+
+```bash
+curl http://localhost:8001/api/data -H "X-API-Key: trace-demo"
+docker-compose logs otel-collector --tail 100
+```
+
+The collector keeps the standard OTLP ports inside the Compose network and publishes host ports `14317` and `14318` to avoid common local conflicts.
 
 Run tests inside the app container:
 
@@ -186,7 +206,7 @@ Behavior today:
 - `X-Request-ID`: accepted when provided, generated when missing, and echoed on every response.
 - `X-Trace-ID`: emitted when OpenTelemetry tracing is enabled.
 - `TRACE_OTLP_ENABLED=true`: exports spans to an OTLP/HTTP collector when tracing is enabled.
-- `TRACE_OTLP_ENDPOINT`: optional trace endpoint such as `http://localhost:4318/v1/traces`.
+- `TRACE_OTLP_ENDPOINT`: optional trace endpoint such as `http://localhost:4318/v1/traces` for local Python with an external collector, `http://localhost:14318/v1/traces` for local Python using the Compose collector, or `http://otel-collector:4318/v1/traces` for Docker Compose.
 - `TRACE_OTLP_HEADERS`: optional comma-separated OTLP headers, such as `authorization=Bearer token,x-tenant=demo`.
 
 ## Admin API
@@ -302,5 +322,7 @@ Completed in this upgrade pass:
 - Phase 14: optional OpenTelemetry OTLP/HTTP exporter configuration.
 - Phase 15: persisted telemetry summaries in the demo dashboard.
 - Phase 16: generated CycloneDX SBOM artifact in CI and local developer workflow.
+- Phase 17: dashboard controls for audited rule updates, reloads, and rollbacks.
+- Phase 18: local OpenTelemetry collector compose profile for tracing demos.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.
