@@ -63,6 +63,8 @@ async def test_rule_validation_success_and_failure(client):
                     "rate": 2.0,
                     "capacity": 3,
                     "fail_mode": "closed",
+                    "owner": "api-platform",
+                    "sensitivity": "internal",
                 }
             }
         }
@@ -74,7 +76,10 @@ async def test_rule_validation_success_and_failure(client):
         json=valid_payload,
     )
     assert response.status_code == 200
-    assert response.json()["valid"] is True
+    body = response.json()
+    assert body["valid"] is True
+    assert body["rules"]["routes"]["/api/data"]["global_limit"]["owner"] == "api-platform"
+    assert body["rules"]["routes"]["/api/data"]["global_limit"]["sensitivity"] == "internal"
 
     invalid_payload = {
         "routes": {
@@ -91,6 +96,25 @@ async def test_rule_validation_success_and_failure(client):
         "/admin/rules/validate",
         headers=ADMIN_HEADERS,
         json=invalid_payload,
+    )
+    assert response.status_code == 422
+
+    invalid_metadata_payload = {
+        "routes": {
+            "/api/data": {
+                "global_limit": {
+                    "rate": 1,
+                    "capacity": 3,
+                    "sensitivity": "secret",
+                }
+            }
+        }
+    }
+
+    response = await client.post(
+        "/admin/rules/validate",
+        headers=ADMIN_HEADERS,
+        json=invalid_metadata_payload,
     )
     assert response.status_code == 422
 

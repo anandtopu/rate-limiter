@@ -70,7 +70,7 @@ Make the enforcement path defensible in a technical review.
    - Enforce `rate > 0`.
    - Enforce `capacity > 0`.
    - Add `fail_mode: Literal["open", "closed"] = "open"`.
-   - Add optional `description` and `tier` metadata.
+   - Add optional `description`, `tier`, `owner`, and `sensitivity` metadata.
 2. Introduce a structured limiter result in [app/core/limiter.py](../app/core/limiter.py):
    - `allowed`
    - `remaining`
@@ -85,11 +85,14 @@ Make the enforcement path defensible in a technical review.
    - Centralize rate-limit header creation in one helper.
    - Apply rule-level `fail_mode`.
 6. Update [rules.json](../rules.json) with metadata and explicit fail-mode examples.
-7. Update tests:
+7. Carry rule metadata into structured decision logs and limiter spans.
+8. Update tests:
    - invalid `rate` and `capacity`
+   - invalid `sensitivity`
    - accurate `Retry-After`
    - fail-open Redis failure
    - fail-closed Redis failure
+   - metadata in decision logs
    - existing race condition behavior
 
 ### Exit Criteria

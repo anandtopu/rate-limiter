@@ -124,6 +124,9 @@ async def rate_limit(request: Request, response: Response):
             "rate_limit.capacity": rule.capacity,
             "rate_limit.rate": rule.rate,
             "rate_limit.fail_mode": rule.fail_mode,
+            "rate_limit.tier": rule.tier or "",
+            "rate_limit.owner": rule.owner or "",
+            "rate_limit.sensitivity": rule.sensitivity or "",
         },
     ):
         result = await redis_limiter.is_allowed(
@@ -183,6 +186,9 @@ async def rate_limit(request: Request, response: Response):
             capacity=rule.capacity,
             fail_mode=rule.fail_mode,
             algorithm=rule.algorithm,
+            tier=rule.tier,
+            owner=rule.owner,
+            sensitivity=rule.sensitivity,
             redis_failed=result.redis_failed,
             redis_fail_open=result.redis_fail_open,
         )
@@ -213,6 +219,9 @@ async def rate_limit(request: Request, response: Response):
         capacity=rule.capacity,
         fail_mode=rule.fail_mode,
         algorithm=rule.algorithm,
+        tier=rule.tier,
+        owner=rule.owner,
+        sensitivity=rule.sensitivity,
         redis_failed=result.redis_failed,
         redis_fail_open=result.redis_fail_open,
     )

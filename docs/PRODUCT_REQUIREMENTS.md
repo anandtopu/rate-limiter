@@ -61,7 +61,7 @@ The target product is a demo-ready "Rate Limiter Control Plane + Enforcement API
 - No authentication on internal/admin-like endpoints, including AI telemetry.
 - Rules are file-backed with local version history, rollback, and lightweight audit metadata, but no multi-user approval workflow.
 - Exact route-path matching will not handle templated routes well if the API grows. (Implemented in Phase 22 with FastAPI route templates.)
-- No endpoint-level metadata such as route owner, tier, sensitivity, or fail behavior.
+- Endpoint-level metadata for route owner, tier, sensitivity, and fail behavior is now available in rules and observability, but there is still no approval workflow around sensitive policy changes.
 
 ### Rate Limiting Correctness Gaps
 

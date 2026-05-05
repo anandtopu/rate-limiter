@@ -34,6 +34,7 @@
 - Add Docker Compose health checks for Redis and the web app.
 - Add trusted reverse-proxy policy for `X-Forwarded-For` client identity.
 - Add templated route keys for path-parameter routes.
+- Add route owner and sensitivity metadata to rules, observability, and demo configuration.
 
 ## Remaining
 
@@ -45,6 +46,7 @@
 - Docker Compose now checks Redis with `redis-cli ping`, waits for Redis before starting `web`, and checks the app through `/ready`.
 - Anonymous client IP resolution now ignores `X-Forwarded-For` unless the direct peer is included in `TRUSTED_PROXY_IPS`.
 - Rate-limit rules and telemetry now use FastAPI route templates, such as `/api/accounts/{account_id}/data`, when a route has path parameters.
+- Rule metadata now includes optional `owner` and validated `sensitivity` labels, alongside existing tier metadata, and those labels flow into decision logs and limiter spans.
 - Persisted telemetry now supports `since`, `until`, and `limit` query parameters. The dashboard has range and event-count controls for the persisted telemetry panel.
 - Docker Compose now has a `tracing` profile with an OpenTelemetry collector. Run it with `ENABLE_TRACING=true`, `TRACE_OTLP_ENABLED=true`, and `TRACE_OTLP_ENDPOINT=http://otel-collector:4318/v1/traces`.
 - The demo dashboard now has Rule Change Controls for audited rule updates, reloads, and rollbacks. Mutations send `X-Audit-Actor`, `X-Audit-Source`, and `X-Audit-Reason` from the UI.

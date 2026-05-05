@@ -10,6 +10,8 @@ class RateLimitRule(BaseModel):
     fail_mode: Literal["open", "closed"] = "open"
     description: str | None = None
     tier: str | None = None
+    owner: str | None = None
+    sensitivity: Literal["public", "internal", "sensitive"] | None = None
 
 class RouteLimits(BaseModel):
     global_limit: RateLimitRule

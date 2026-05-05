@@ -295,6 +295,7 @@ Use FastAPI static files plus one lightweight HTML/CSS/JavaScript page:
 - Add Docker Compose health checks for Redis and the web app. (Implemented in Phase 20)
 - Add trusted reverse-proxy policy for `X-Forwarded-For` client identity. (Implemented in Phase 21)
 - Add templated route keys for path-parameter routes. (Implemented in Phase 22)
+- Add owner and sensitivity metadata for rules and observability. (Implemented in Phase 23)
 
 ## 9. Proposed Milestones
 

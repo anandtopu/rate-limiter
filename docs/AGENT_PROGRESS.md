@@ -46,6 +46,7 @@ Last updated: 2026-05-05
 | 20 | Done | Docker Compose health checks for Redis and the web app. |
 | 21 | Done | Trusted reverse-proxy policy for `X-Forwarded-For` client identity. |
 | 22 | Done | Templated route keys for path-parameter routes. |
+| 23 | Done | Rule owner and sensitivity metadata for validation, demo rules, logs, and limiter traces. |
 
 ## Verification Commands
 

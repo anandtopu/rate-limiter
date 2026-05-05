@@ -78,6 +78,20 @@ def test_rule_algorithm_must_be_known():
         RateLimitRule(rate=1, capacity=1, algorithm="leaky_bucket")
 
 
+def test_rule_sensitivity_must_be_known_when_set():
+    rule = RateLimitRule(
+        rate=1,
+        capacity=1,
+        owner="api-platform",
+        sensitivity="sensitive",
+    )
+    assert rule.owner == "api-platform"
+    assert rule.sensitivity == "sensitive"
+
+    with pytest.raises(ValidationError):
+        RateLimitRule(rate=1, capacity=1, sensitivity="secret")
+
+
 @pytest.mark.asyncio
 async def test_fixed_window_algorithm(redis_client):
     limiter = RedisRateLimiter(redis_client)

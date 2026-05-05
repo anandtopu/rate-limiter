@@ -10,6 +10,7 @@ This repository is being upgraded into a portfolio-ready "Rate Limiter Control P
 - **Multiple Algorithms**: Rules can use `token_bucket` or `fixed_window`.
 - **Atomic Redis Evaluation**: Lua scripting keeps token updates race-safe across concurrent requests.
 - **JSON Rule Configuration**: Per-route global limits and identifier-specific overrides are loaded from `rules.json`.
+- **Rule Metadata**: Rules can carry route tier, owner, and sensitivity labels into validation, logs, and limiter traces.
 - **Templated Route Keys**: Parameterized FastAPI routes use their route template for rule lookup and telemetry.
 - **Rate Limit Headers**:
   - `X-RateLimit-Limit`
@@ -178,12 +179,20 @@ Rules live in [rules.json](rules.json).
     "/api/data": {
       "global_limit": {
         "rate": 1.0,
-        "capacity": 5
+        "capacity": 5,
+        "algorithm": "token_bucket",
+        "fail_mode": "open",
+        "tier": "free",
+        "owner": "api-platform",
+        "sensitivity": "internal"
       },
       "overrides": {
         "premium_user_key": {
           "rate": 10.0,
-          "capacity": 100
+          "capacity": 100,
+          "tier": "premium",
+          "owner": "customer-platform",
+          "sensitivity": "internal"
         }
       }
     }
@@ -196,6 +205,7 @@ Behavior today:
 - `X-API-Key` is used as the rate-limit identifier when present.
 - Client IP is used when `X-API-Key` is missing.
 - Identifier-specific overrides win over the route's global limit.
+- Optional `tier`, `owner`, and `sensitivity` metadata is validated with rules and included in decision logs and tracing attributes.
 - Missing routes fall back to a default rule.
 - `/health` is not rate-limited.
 - `/api/data` uses `token_bucket` by default.
@@ -355,5 +365,6 @@ Completed in this upgrade pass:
 - Phase 20: Docker Compose health checks for Redis and the web app.
 - Phase 21: trusted reverse-proxy policy for `X-Forwarded-For` client identity.
 - Phase 22: templated route keys for path-parameter routes.
+- Phase 23: route owner and sensitivity metadata in rule validation, demo rules, structured logs, and limiter traces.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.

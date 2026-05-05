@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 from pathlib import Path
 
 import pytest
@@ -102,6 +103,44 @@ async def test_templated_route_uses_route_pattern_for_limits(client):
     assert first.status_code == 200
     assert first.json()["account_id"] == "acct_1"
     assert second.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_rule_metadata_is_included_in_decision_logs(client, caplog):
+    rules_path = "tmp-test-data/rule-metadata/rules.json"
+    Path(rules_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(rules_path).write_text(
+        json.dumps(
+            {
+                "routes": {
+                    "/api/accounts/{account_id}/data": {
+                        "global_limit": {
+                            "rate": 1.0,
+                            "capacity": 2,
+                            "fail_mode": "open",
+                            "tier": "enterprise",
+                            "owner": "accounts",
+                            "sensitivity": "sensitive",
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    depends.rules_manager = RulesManager(rules_path)
+    caplog.set_level(logging.INFO, logger="rate_limiter")
+
+    response = await client.get(
+        "/api/accounts/acct_metadata/data",
+        headers={"X-API-Key": "metadata_user"},
+    )
+
+    assert response.status_code == 200
+    assert "route=/api/accounts/{account_id}/data" in caplog.text
+    assert "tier=enterprise" in caplog.text
+    assert "owner=accounts" in caplog.text
+    assert "sensitivity=sensitive" in caplog.text
 
 
 @pytest.mark.asyncio
