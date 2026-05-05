@@ -16,6 +16,7 @@ const els = {
   persistentTelemetryBtn: document.querySelector("#persistentTelemetryBtn"),
   recommendationsBtn: document.querySelector("#recommendationsBtn"),
   recommendationDraftBtn: document.querySelector("#recommendationDraftBtn"),
+  anomaliesBtn: document.querySelector("#anomaliesBtn"),
   rulesBtn: document.querySelector("#rulesBtn"),
   historyBtn: document.querySelector("#historyBtn"),
   auditViewBtn: document.querySelector("#auditViewBtn"),
@@ -44,6 +45,7 @@ const els = {
   persistentLimitInput: document.querySelector("#persistentLimitInput"),
   persistentTelemetryOutput: document.querySelector("#persistentTelemetryOutput"),
   recommendationsOutput: document.querySelector("#recommendationsOutput"),
+  anomaliesOutput: document.querySelector("#anomaliesOutput"),
   rulesOutput: document.querySelector("#rulesOutput"),
   historyOutput: document.querySelector("#historyOutput"),
   auditRouteFilterInput: document.querySelector("#auditRouteFilterInput"),
@@ -274,6 +276,10 @@ async function draftRecommendationPolicy() {
   if (body.dry_run) {
     els.dryRunOutput.textContent = pretty(body.dry_run);
   }
+}
+
+async function loadAnomalies() {
+  await loadAdminJson("/admin/ai/anomalies", {}, els.anomaliesOutput);
 }
 
 async function loadRules() {
@@ -525,6 +531,7 @@ async function refreshAll() {
     loadPersistentTelemetry(),
     loadRules(),
     loadHistory(),
+    loadAnomalies(),
     loadAuditView(),
     loadPendingApprovals(),
   ]);
@@ -575,6 +582,10 @@ els.recommendationsBtn.addEventListener("click", () => {
 
 els.recommendationDraftBtn.addEventListener("click", () => {
   draftRecommendationPolicy();
+});
+
+els.anomaliesBtn.addEventListener("click", () => {
+  loadAnomalies();
 });
 
 els.rulesBtn.addEventListener("click", () => {

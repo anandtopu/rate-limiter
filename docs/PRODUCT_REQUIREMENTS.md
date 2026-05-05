@@ -6,6 +6,8 @@ This project is currently a compact FastAPI + Redis token-bucket rate limiter wi
 
 The target product is a demo-ready "Rate Limiter Control Plane + Enforcement API" that shows backend system design, distributed consistency, operational safety, and a small AI-assisted observability layer.
 
+The next research track evolves that observability layer into an AI-assisted advisor for rate-limit policy analysis. The advisor should explain traffic patterns, detect suspicious behavior, draft safer policies, and evaluate expected impact without making autonomous enforcement decisions.
+
 ## 2. Product Goals
 
 - Demonstrate a production-inspired distributed rate limiter using Redis Lua for atomic token bucket evaluation.
@@ -14,12 +16,16 @@ The target product is a demo-ready "Rate Limiter Control Plane + Enforcement API
 - Expose operational signals: request outcomes, top offenders, fail-open events, and actionable recommendations.
 - Make reliability tradeoffs explicit, especially fail-open vs fail-closed behavior.
 - Ship with tests, Docker setup, and documentation that make the project easy to run and evaluate.
+- Research AI-assisted policy tuning while keeping the request enforcement path deterministic.
+- Provide explainable recommendations with evidence, confidence, expected impact, and safety constraints.
 
 ## 3. Non-Goals
 
 - Full multi-tenant SaaS billing, user management, or organization hierarchy.
 - A distributed telemetry store for long-term analytics.
 - Advanced ML model integration or automated rule changes.
+- AI/model calls in the request enforcement path.
+- Fully autonomous rate-limit policy mutation.
 - A complete WAF or abuse-prevention platform.
 - Production secrets management beyond demo-safe configuration patterns.
 
@@ -28,6 +34,7 @@ The target product is a demo-ready "Rate Limiter Control Plane + Enforcement API
 - Portfolio reviewers and hiring teams evaluating backend architecture skill.
 - Developers learning rate limiting, Redis atomic operations, and FastAPI middleware/dependencies.
 - API platform teams wanting a small reference implementation for edge rate limiting concepts.
+- Researchers or platform engineers evaluating safe AI-assisted traffic policy workflows.
 
 ## 5. Current Capabilities
 
@@ -127,6 +134,21 @@ The MVP should make the project feel complete without turning it into a large pl
 - Add OpenTelemetry tracing and optional OTLP exporter configuration.
 - Add GitHub Actions CI. (Implemented with lint, tests, dependency audit, static security scan, and SBOM artifact upload.)
 
+### AI Research Upgrade
+
+The AI research upgrade should be implemented as a control-plane advisor. It consumes telemetry and active rules, then produces recommendations and policy drafts that pass through validation, dry-run, audit, approval, and rollback workflows.
+
+Primary capabilities:
+
+- Enriched telemetry and feature extraction for route, identifier, and route-identifier behavior.
+- Structured advisor recommendations for tuning, abuse, reliability, and algorithm selection.
+- Replay-based counterfactual dry-runs against recent or persisted traffic.
+- Anomaly detection for traffic spikes, retry loops, concentrated offenders, sensitive-route probing, and Redis outage exposure.
+- Optional LLM policy copilot for explanations and validated draft rules.
+- Repeatable evaluation scenarios and research reports.
+
+The detailed backlog is maintained in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md).
+
 ## 8. Functional Requirements
 
 ### Enforcement
@@ -161,6 +183,15 @@ The MVP should make the project feel complete without turning it into a large pl
 - The app must surface Redis connectivity status.
 - The app must include request IDs in logs and responses.
 
+### AI Advisor
+
+- The app should extract feature summaries from recent and persisted telemetry.
+- The app should generate explainable recommendations with evidence and confidence.
+- The app should distinguish under-provisioned routes from likely abusive identifiers where possible.
+- The app should estimate the impact of proposed policies before application.
+- The app should never let AI output mutate active rules without validation and admin action.
+- The app should support offline tests with deterministic advisors and fake LLM adapters.
+
 ### Security
 
 - Admin and internal telemetry endpoints must require an admin API key in demo mode.
@@ -176,6 +207,8 @@ The MVP should make the project feel complete without turning it into a large pl
 - Core enforcement must be concurrency-safe under simultaneous requests.
 - The code should remain beginner-readable, with clear module boundaries.
 - Demo UI should be lightweight and avoid adding a large frontend toolchain unless needed.
+- AI analysis must run outside the hot request path.
+- Optional LLM features must be disabled by default and must not be required for local tests.
 
 ## 10. Success Metrics
 
@@ -184,6 +217,7 @@ The MVP should make the project feel complete without turning it into a large pl
 - Demo dashboard shows allowed and denied requests without needing curl.
 - README accurately explains architecture, limitations, and tradeoffs.
 - `Retry-After` and rule validation behavior are correct and documented.
+- AI recommendations are evaluated against repeatable scenarios with documented limitations.
 
 ## 11. Acceptance Criteria
 

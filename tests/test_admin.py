@@ -251,8 +251,8 @@ async def test_rule_dry_run_reports_estimated_impact_without_applying(client):
     write_rules(rules_path, capacity=5, rate=1)
     depends.rules_manager = RulesManager(str(rules_path))
 
-    for index in range(6):
-        response = await client.get("/api/data", headers={"X-API-Key": f"dry_run_{index}"})
+    for _ in range(4):
+        response = await client.get("/api/data", headers={"X-API-Key": "dry_run_replay_user"})
         assert response.status_code == 200
 
     proposed_payload = {
@@ -277,11 +277,17 @@ async def test_rule_dry_run_reports_estimated_impact_without_applying(client):
     body = response.json()
     assert body["valid"] is True
     assert body["applied"] is False
-    assert body["events_analyzed"] >= 6
+    assert body["events_analyzed"] >= 4
     assert body["summary"]["estimated_additional_denials"] > 0
     route_report = next(item for item in body["routes"] if item["route"] == "/api/data")
     assert route_report["capacity_delta"] == -4
     assert route_report["fail_mode_changed"] is True
+    assert body["replay"]["mode"] == "recent_events_replay"
+    assert body["replay"]["summary"]["events_replayed"] >= 4
+    assert body["replay"]["summary"]["newly_denied"] > 0
+    replay_route = next(item for item in body["replay"]["routes"] if item["route"] == "/api/data")
+    assert replay_route["newly_denied"] > 0
+    assert body["replay"]["identifiers"]
 
     snapshot = depends.rules_manager.snapshot()
     assert snapshot["rules"]["routes"]["/api/data"]["global_limit"]["capacity"] == 5

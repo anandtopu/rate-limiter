@@ -2,7 +2,7 @@
 
 A production-inspired distributed rate limiter built with **FastAPI** and **Redis**. The project is intentionally compact: it is small enough to read in one sitting, but complete enough to demonstrate token-bucket enforcement, atomic Redis Lua evaluation, durable rule management, response headers, and passive telemetry.
 
-This repository is being upgraded into a portfolio-ready "Rate Limiter Control Plane + Enforcement API." The current implementation focuses on the enforcement path and AI-oriented signals; the roadmap adds authenticated rule management, observability, and an interactive browser demo.
+This repository has been upgraded into a portfolio-ready "Rate Limiter Control Plane + Enforcement API." The next research track explores AI-assisted rate-limit analysis while keeping the enforcement path deterministic and safe.
 
 ## Current Features
 
@@ -21,6 +21,11 @@ This repository is being upgraded into a portfolio-ready "Rate Limiter Control P
 - **Passive Telemetry**: In-memory signals capture recent allow/deny behavior and top offenders.
 - **Optional Persistent Telemetry**: `PERSIST_TELEMETRY=true` records rate-limit decisions to SQLite for restart-safe demo analytics.
 - **Recommendations Endpoint**: A lightweight recommendation layer summarizes recent traffic patterns without changing rules automatically.
+- **AI Research Roadmap**: The next backlog expands passive recommendations into feature extraction, explainable advisors, replay-based dry-runs, anomaly detection, an optional LLM copilot, and repeatable evaluation scenarios.
+- **AI Feature Foundation**: Rate-limit telemetry now carries rule and request context for route, identifier, and route-identifier feature summaries.
+- **Advisor V2**: Deterministic tuning, abuse, reliability, and algorithm advisors return structured recommendations with confidence, rationale, proposed changes, expected impact, and safety notes.
+- **Replay Dry Run**: Policy dry-runs include a deterministic replay report with newly denied, newly allowed, route impact, identifier impact, and sensitive-route impact.
+- **Anomaly Detection**: Deterministic findings flag route spikes, retry loops, concentrated offenders, sensitive-route probing, and Redis outage exposure with evidence and suggested next actions.
 - **Admin Rule API**: `X-Admin-Key` protects rule inspect, validate, update, approval, and reload endpoints.
 - **Operational Endpoints**: `/health`, `/ready`, and `/metrics` expose process health, Redis readiness, and Prometheus-style counters.
 - **Docker Health Checks**: Compose marks Redis and the web app healthy only after Redis responds and `/ready` succeeds.
@@ -61,6 +66,8 @@ Core modules:
 - `app/ai/telemetry.py`: in-memory signals and recommendations.
 - `app/observability/telemetry_store.py`: optional SQLite persistence for rate-limit events.
 
+AI research architecture is tracked in [docs/AI_RESEARCH_ROADMAP.md](docs/AI_RESEARCH_ROADMAP.md) and [docs/AI_FEATURE_DESIGN.md](docs/AI_FEATURE_DESIGN.md). The intended design is control-plane only: telemetry feeds feature extraction and advisors, advisors produce policy proposals, and proposals must pass validation, dry-run, audit, approval, and rollback controls before any rule change.
+
 ## Known Tradeoffs
 
 This project is production-inspired, not fully production-ready yet. The current tradeoffs are explicit:
@@ -72,6 +79,8 @@ This project is production-inspired, not fully production-ready yet. The current
 - **Identifier hashing defaults off**: API keys and IPs can be hashed in Redis keys and telemetry with `HASH_IDENTIFIERS=true`, but the default keeps demo behavior easy to inspect.
 
 These are intentionally tracked in [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md).
+
+The AI research backlog is intentionally tracked separately in [docs/AI_RESEARCH_ROADMAP.md](docs/AI_RESEARCH_ROADMAP.md), because it is a new research phase rather than unfinished MVP work.
 
 ## Tech Stack
 
@@ -285,6 +294,7 @@ Available endpoints:
 
 - `GET /admin/rules`
 - `GET /admin/keys`
+- `GET /admin/ai/anomalies`
 - `GET /admin/rules/export`
 - `GET /admin/telemetry/persistent`
 - `GET /admin/rules/history`
@@ -419,6 +429,12 @@ Generate recommendations:
 curl -X POST http://localhost:8001/ai/recommendations -H "X-Admin-Key: dev-admin-key"
 ```
 
+View anomaly findings:
+
+```bash
+curl http://localhost:8001/admin/ai/anomalies -H "X-Admin-Key: dev-admin-key"
+```
+
 Draft editable policy JSON from recommendations:
 
 ```bash
@@ -476,5 +492,9 @@ Completed in this upgrade pass:
 - Phase 33: multiple named admin keys for local rotation demos, audit attribution, and safe key-name introspection.
 - Phase 34: rule import/export helpers for sharing demo policies and restoring known-good demo states.
 - Phase 35: OpenAPI examples for admin rule management, dry runs, rollback, persistent telemetry filters, and metadata fields.
+- AI-P0: telemetry feature foundation with enriched decision context and deterministic feature extraction.
+- AI-P1: advisor v2 with structured tuning, abuse, reliability, and algorithm recommendations.
+- AI-P2: replay-based counterfactual dry-runs with route and identifier impact summaries.
+- AI-P3: anomaly and abuse detection with admin API and dashboard visibility.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.

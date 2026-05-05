@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from pydantic import ValidationError
 
+from app.ai.simulation import replay_policy
 from app.ai.telemetry import RateLimitEvent
 from app.models.rules import RateLimitConfig, RateLimitRule
 
@@ -312,7 +313,7 @@ class RulesManager:
                 "override_changes": self._describe_override_changes(active_limits, proposed_limits),
             })
 
-        return {
+        report = {
             "valid": True,
             "applied": False,
             "window_seconds": window_seconds,
@@ -325,6 +326,12 @@ class RulesManager:
             },
             "routes": routes,
         }
+        report["replay"] = replay_policy(
+            active_config=active_config,
+            proposed_config=proposed_config,
+            events=events,
+        )
+        return report
 
     def draft_from_recommendations(self, recommendations: dict[str, Any]) -> dict[str, Any]:
         active_config = self.config or RateLimitConfig(routes={})
@@ -334,8 +341,25 @@ class RulesManager:
         for item in recommendations.get("items", []):
             recommendation_type = item.get("type")
             action = (item.get("recommendation") or {}).get("action")
+            proposed_change = item.get("proposed_change") or {}
 
-            if recommendation_type == "tuning" and action == "review_limits":
+            if proposed_change.get("kind") == "scale_route_limit":
+                change = self._apply_tuning_recommendation(proposed_config, item)
+                if change:
+                    changes.append(change)
+            elif proposed_change.get("kind") == "set_fail_mode":
+                change = self._apply_fail_mode_recommendation(proposed_config, item)
+                if change:
+                    changes.append(change)
+            elif proposed_change.get("kind") == "set_algorithm":
+                change = self._apply_algorithm_recommendation(proposed_config, item)
+                if change:
+                    changes.append(change)
+            elif proposed_change.get("kind") == "add_identifier_override":
+                change = self._apply_identifier_override_recommendation(proposed_config, item)
+                if change:
+                    changes.append(change)
+            elif recommendation_type == "tuning" and action == "review_limits":
                 change = self._apply_tuning_recommendation(proposed_config, item)
                 if change:
                     changes.append(change)
@@ -362,21 +386,122 @@ class RulesManager:
 
         route_limits = proposed_config.routes[route]
         rule = route_limits.global_limit
+        proposed_change = item.get("proposed_change") or {}
         signal = item.get("signal") or {}
         limited_ratio = float(signal.get("rate_limited_ratio") or 0)
-        multiplier = 2.0 if limited_ratio >= 0.3 else 1.5
+        multiplier = float(
+            proposed_change.get("rate_multiplier")
+            or proposed_change.get("capacity_multiplier")
+            or (2.0 if limited_ratio >= 0.3 else 1.5)
+        )
+        capacity_multiplier = float(proposed_change.get("capacity_multiplier") or multiplier)
+        min_increment = int(proposed_change.get("min_capacity_increment") or 1)
 
         before = rule.model_dump(mode="json")
         rule.rate = round(rule.rate * multiplier, 6)
-        rule.capacity = max(rule.capacity + 1, math.ceil(rule.capacity * multiplier))
+        rule.capacity = max(
+            rule.capacity + min_increment,
+            math.ceil(rule.capacity * capacity_multiplier),
+        )
         after = rule.model_dump(mode="json")
 
         return {
             "type": "tuning",
             "route": route,
-            "reason": "High rate-limit ratio recommendation",
+            "reason": item.get("rationale") or "High rate-limit ratio recommendation",
             "before": before,
             "after": after,
+        }
+
+    def _apply_fail_mode_recommendation(
+        self,
+        proposed_config: RateLimitConfig,
+        item: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        proposed_change = item.get("proposed_change") or {}
+        route = proposed_change.get("route") or item.get("route")
+        if route not in proposed_config.routes:
+            return None
+
+        fail_mode = proposed_change.get("fail_mode")
+        if fail_mode not in {"open", "closed"}:
+            return None
+
+        rule = proposed_config.routes[route].global_limit
+        if rule.fail_mode == fail_mode:
+            return None
+
+        before = rule.model_dump(mode="json")
+        rule.fail_mode = fail_mode
+        return {
+            "type": item.get("type") or "reliability",
+            "route": route,
+            "reason": item.get("rationale") or "Fail-mode recommendation",
+            "before": before,
+            "after": rule.model_dump(mode="json"),
+        }
+
+    def _apply_algorithm_recommendation(
+        self,
+        proposed_config: RateLimitConfig,
+        item: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        proposed_change = item.get("proposed_change") or {}
+        route = proposed_change.get("route") or item.get("route")
+        if route not in proposed_config.routes:
+            return None
+
+        algorithm = proposed_change.get("algorithm")
+        if algorithm not in {"token_bucket", "fixed_window", "sliding_window"}:
+            return None
+
+        rule = proposed_config.routes[route].global_limit
+        if rule.algorithm == algorithm:
+            return None
+
+        before = rule.model_dump(mode="json")
+        rule.algorithm = algorithm
+        return {
+            "type": item.get("type") or "algorithm",
+            "route": route,
+            "reason": item.get("rationale") or "Algorithm recommendation",
+            "before": before,
+            "after": rule.model_dump(mode="json"),
+        }
+
+    def _apply_identifier_override_recommendation(
+        self,
+        proposed_config: RateLimitConfig,
+        item: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        proposed_change = item.get("proposed_change") or {}
+        route = proposed_change.get("route") or item.get("route")
+        identifier = proposed_change.get("identifier") or (item.get("signal") or {}).get(
+            "identifier"
+        )
+        if route not in proposed_config.routes or not identifier:
+            return None
+
+        route_limits = proposed_config.routes[route]
+        source_rule = route_limits.global_limit
+        before = source_rule.model_dump(mode="json")
+        override_rule = source_rule.model_copy(deep=True)
+        rate_multiplier = float(proposed_change.get("rate_multiplier") or 0.5)
+        capacity_multiplier = float(proposed_change.get("capacity_multiplier") or 0.5)
+        override_rule.rate = max(0.001, round(source_rule.rate * rate_multiplier, 6))
+        override_rule.capacity = max(1, math.ceil(source_rule.capacity * capacity_multiplier))
+        overrides = dict(route_limits.overrides or {})
+        previous_override = overrides.get(identifier)
+        overrides[str(identifier)] = override_rule
+        route_limits.overrides = overrides
+
+        return {
+            "type": item.get("type") or "abuse",
+            "route": route,
+            "identifier": str(identifier),
+            "reason": item.get("rationale") or "Identifier override recommendation",
+            "before": previous_override.model_dump(mode="json") if previous_override else before,
+            "after": override_rule.model_dump(mode="json"),
         }
 
     def _apply_reliability_recommendation(

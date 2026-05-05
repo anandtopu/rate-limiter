@@ -2,6 +2,18 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+TELEMETRY_SCHEMA_COLUMNS = {
+    "algorithm": "TEXT",
+    "fail_mode": "TEXT",
+    "tier": "TEXT",
+    "owner": "TEXT",
+    "sensitivity": "TEXT",
+    "rule_version": "INTEGER",
+    "method": "TEXT",
+    "status_code": "INTEGER",
+    "latency_ms": "REAL",
+}
+
 
 class SQLiteTelemetryStore:
     def __init__(self, path: str):
@@ -26,16 +38,34 @@ class SQLiteTelemetryStore:
                     capacity INTEGER NOT NULL,
                     rate REAL NOT NULL,
                     retry_after_s INTEGER,
-                    redis_fail_open INTEGER NOT NULL
+                    redis_fail_open INTEGER NOT NULL,
+                    algorithm TEXT,
+                    fail_mode TEXT,
+                    tier TEXT,
+                    owner TEXT,
+                    sensitivity TEXT,
+                    rule_version INTEGER,
+                    method TEXT,
+                    status_code INTEGER,
+                    latency_ms REAL
                 )
                 """
             )
+            self._migrate_schema(conn)
             conn.execute(
                 """
                 CREATE INDEX IF NOT EXISTS idx_rate_limit_events_timestamp
                 ON rate_limit_events(timestamp)
                 """
             )
+
+    def _migrate_schema(self, conn: sqlite3.Connection) -> None:
+        existing_columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(rate_limit_events)").fetchall()
+        }
+        for column, column_type in TELEMETRY_SCHEMA_COLUMNS.items():
+            if column not in existing_columns:
+                conn.execute(f"ALTER TABLE rate_limit_events ADD COLUMN {column} {column_type}")
 
     def record(self, event: Any) -> None:
         with self._connect() as conn:
@@ -50,9 +80,18 @@ class SQLiteTelemetryStore:
                     capacity,
                     rate,
                     retry_after_s,
-                    redis_fail_open
+                    redis_fail_open,
+                    algorithm,
+                    fail_mode,
+                    tier,
+                    owner,
+                    sensitivity,
+                    rule_version,
+                    method,
+                    status_code,
+                    latency_ms
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     event.timestamp,
@@ -64,6 +103,15 @@ class SQLiteTelemetryStore:
                     event.rate,
                     event.retry_after_s,
                     int(event.redis_fail_open),
+                    getattr(event, "algorithm", None),
+                    getattr(event, "fail_mode", None),
+                    getattr(event, "tier", None),
+                    getattr(event, "owner", None),
+                    getattr(event, "sensitivity", None),
+                    getattr(event, "rule_version", None),
+                    getattr(event, "method", None),
+                    getattr(event, "status_code", None),
+                    getattr(event, "latency_ms", None),
                 ),
             )
 
@@ -109,7 +157,16 @@ class SQLiteTelemetryStore:
                     capacity,
                     rate,
                     retry_after_s,
-                    redis_fail_open
+                    redis_fail_open,
+                    algorithm,
+                    fail_mode,
+                    tier,
+                    owner,
+                    sensitivity,
+                    rule_version,
+                    method,
+                    status_code,
+                    latency_ms
                 FROM rate_limit_events
                 {where_sql}
                 ORDER BY id DESC

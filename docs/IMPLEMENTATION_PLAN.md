@@ -259,17 +259,66 @@ The original MVP and follow-up backlog has been implemented through Phase 35. Co
 
 ### P0: Next Implementation Candidates
 
-- No P0 implementation candidates remain from the current queue.
+- No P0 implementation candidates remain from the AI research queue.
 
 ### P1: Product And Demo Polish
 
-- P1 product and demo polish queue is complete.
+- P1 AI research queue is complete.
 
 ### P2: Advanced Platform Enhancements
 
-- P2 advanced platform enhancement queue is complete.
+- AI-P4: optional LLM policy copilot.
+- AI-P5: research evaluation harness.
 
-## 9. Proposed Milestones
+## 9. AI Research Upgrade
+
+The AI research track extends the completed control-plane work into a safe advisor system. The detailed backlog lives in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md), and the architecture/data-model design lives in [AI_FEATURE_DESIGN.md](AI_FEATURE_DESIGN.md).
+
+### Architecture Upgrade
+
+AI should be a control-plane subsystem, not an enforcement dependency. The request path remains:
+
+```text
+FastAPI dependency -> RulesManager -> Redis Lua script -> response headers -> telemetry
+```
+
+The AI path consumes telemetry after decisions are made:
+
+```text
+Telemetry -> feature extraction -> advisors -> policy proposal -> validate -> dry-run -> approval -> apply/rollback
+```
+
+This keeps runtime behavior deterministic and gives every AI proposal the same safety controls as hand-written policy changes.
+
+### New Modules
+
+- `app/ai/features.py`: converts raw decisions into route, identifier, and route-identifier features.
+- `app/ai/advisors.py`: deterministic advisor engines for tuning, abuse, reliability, and algorithm selection.
+- `app/ai/simulation.py`: replay-based counterfactual policy simulator.
+- `app/ai/anomalies.py`: deterministic anomaly detectors for spikes, retry loops, concentrated offenders, sensitive-route probing, and Redis outage exposure.
+- `app/ai/copilot.py`: optional LLM adapter and policy-draft workflow, disabled by default.
+- `scripts/ai_eval.py`: repeatable research evaluation scenarios and reports.
+
+### Implementation Sequence
+
+1. Extend telemetry data capture and persistence.
+2. Build feature extraction with deterministic tests.
+3. Replace threshold-only recommendations with advisor v2.
+4. Upgrade dry-run with replay simulation.
+5. Add anomaly detection and dashboard visibility.
+6. Add optional LLM copilot behind explicit configuration.
+7. Add evaluation scenarios and document research results.
+
+### Safety Requirements
+
+- AI output must never apply rules directly.
+- Generated policies must pass validation before dry-run.
+- Sensitive-route changes must use pending approval.
+- Recommendations must include confidence, rationale, signals, expected impact, and safety notes.
+- LLM prompts must avoid raw identifiers when `HASH_IDENTIFIERS=true`.
+- Local tests must run without network or model-provider credentials.
+
+## 10. Proposed Milestones
 
 ### Milestone 1: Correct Core
 
@@ -297,7 +346,7 @@ The original MVP and follow-up backlog has been implemented through Phase 35. Co
 - Readiness endpoint.
 - CI and quality checks.
 
-## 10. Review Checklist
+## 11. Review Checklist
 
 - Does the code still teach the token-bucket algorithm clearly?
 - Can a reviewer trigger and understand `429` behavior quickly?

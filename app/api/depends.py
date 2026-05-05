@@ -113,6 +113,7 @@ async def rate_limit(request: Request, response: Response):
     route_path = route_key_for_request(request)
     rule = rules_manager.get_rule(route_path, identifier)
     metric_identifier = protected_identifier(identifier)
+    rule_version = rules_manager.current_version()
 
     key = f"rate_limit:{rule.algorithm}:{route_path}:{metric_identifier}"
     with start_span(
@@ -170,6 +171,14 @@ async def rate_limit(request: Request, response: Response):
             rate=rule.rate,
             retry_after_s=retry_after_s,
             redis_fail_open=result.redis_fail_open,
+            algorithm=rule.algorithm,
+            fail_mode=rule.fail_mode,
+            tier=rule.tier,
+            owner=rule.owner,
+            sensitivity=rule.sensitivity,
+            rule_version=rule_version,
+            method=request.method,
+            status_code=429,
         )
         record_rate_limit_metric(
             route_path=route_path,
@@ -203,6 +212,14 @@ async def rate_limit(request: Request, response: Response):
         rate=rule.rate,
         retry_after_s=None,
         redis_fail_open=result.redis_fail_open,
+        algorithm=rule.algorithm,
+        fail_mode=rule.fail_mode,
+        tier=rule.tier,
+        owner=rule.owner,
+        sensitivity=rule.sensitivity,
+        rule_version=rule_version,
+        method=request.method,
+        status_code=200,
     )
     record_rate_limit_metric(
         route_path=route_path,

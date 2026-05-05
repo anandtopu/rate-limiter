@@ -261,6 +261,14 @@ async def get_admin_keys(request: Request):
 
 
 @router.get(
+    "/ai/anomalies",
+    summary="Inspect deterministic AI anomaly findings",
+)
+async def get_ai_anomalies():
+    return telemetry_hub.detect_anomalies()
+
+
+@router.get(
     "/telemetry/persistent",
     summary="Inspect persisted rate-limit telemetry",
     responses={

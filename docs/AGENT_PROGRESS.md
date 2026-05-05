@@ -25,12 +25,12 @@ Last updated: 2026-05-05
 - Saved for resume on 2026-05-05.
 - Worktree contains cumulative uncommitted backlog changes from the current implementation pass.
 - The original portfolio upgrade is complete through Phase 35.
-- The forward backlog has been refreshed in [BACKLOG_STATUS.md](BACKLOG_STATUS.md) and [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
+- The forward backlog has been refreshed as an AI research upgrade in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md), [BACKLOG_STATUS.md](BACKLOG_STATUS.md), and [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 - Latest known verification from this coding pass:
   - `.\.venv\Scripts\ruff.exe check .` passed.
-  - `.\.venv\Scripts\pytest.exe -q` passed with `75 passed`.
-  - `.\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml` passed with `75 passed`, `82%` total coverage, and `coverage.xml` generated.
-- No backlog items remain in the current queue.
+  - `.\.venv\Scripts\pytest.exe -q` passed with `93 passed`.
+  - `.\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml` passed with `93 passed`, `83%` total coverage, and `coverage.xml` generated.
+- Next agent should start with AI-P4: optional LLM policy copilot.
 - Recommended first implementation read:
   - [app/core/rules.py](../app/core/rules.py)
   - [app/api/admin.py](../app/api/admin.py)
@@ -78,6 +78,10 @@ Last updated: 2026-05-05
 | 33 | Done | Multiple named admin keys for local rotation demos, audit attribution, and safe key-name introspection. |
 | 34 | Done | Rule import/export helpers for sharing demo policies and restoring known-good demo states. |
 | 35 | Done | OpenAPI examples for admin rule management, dry runs, rollback, persistent telemetry filters, and metadata fields. |
+| AI-P0 | Done | Enriched telemetry and deterministic route, identifier, and route-identifier feature extraction. |
+| AI-P1 | Done | Structured advisor v2 recommendations for tuning, abuse, reliability, and algorithm selection. |
+| AI-P2 | Done | Replay-based counterfactual dry-runs with route and identifier impact summaries. |
+| AI-P3 | Done | Deterministic anomaly detection for route spikes, retry loops, concentrated offenders, sensitive-route probing, and Redis outage exposure. |
 
 ## Verification Commands
 
@@ -107,4 +111,8 @@ curl.exe -s http://localhost:8001/admin/telemetry/persistent -H "X-Admin-Key: de
 
 ## Next Recommended Work
 
-No queued backlog items remain.
+1. Implement AI-P4 optional LLM policy copilot:
+   - add disabled-by-default configuration and an adapter interface;
+   - expose a control-plane-only admin endpoint for explanations and validated draft policies;
+   - validate and dry-run any generated rule JSON before returning it;
+   - add fake-adapter tests so local and CI runs never need provider credentials.

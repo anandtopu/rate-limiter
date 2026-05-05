@@ -21,6 +21,8 @@ async def test_demo_dashboard_returns_html(client):
     assert "auditRouteFilterInput" in response.text
     assert "auditSensitivityFilterSelect" in response.text
     assert "recommendationDraftBtn" in response.text
+    assert "Anomalies" in response.text
+    assert "anomaliesBtn" in response.text
 
 
 @pytest.mark.asyncio
@@ -53,6 +55,8 @@ async def test_demo_static_assets_are_served(client):
     assert "/admin/rules/audit" in js_response.text
     assert "draftRecommendationPolicy" in js_response.text
     assert "/admin/rules/recommendation-draft" in js_response.text
+    assert "loadAnomalies" in js_response.text
+    assert "/admin/ai/anomalies" in js_response.text
     assert "X-Audit-Reason" in js_response.text
     assert "summary-strip" in css_response.text
     assert "telemetry-controls" in css_response.text

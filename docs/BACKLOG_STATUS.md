@@ -47,24 +47,34 @@
 - Add multiple named admin keys for local rotation demos and audit attribution.
 - Add rule import/export helpers for sharing demo policies and restoring known-good demo states.
 - Add OpenAPI examples for admin rule management, dry runs, rollback, persistent telemetry filters, and metadata fields.
+- Complete AI-P0 telemetry feature foundation with enriched decision events, SQLite telemetry migration, and deterministic feature extraction.
+- Complete AI-P1 advisor v2 with structured tuning, abuse, reliability, and algorithm recommendations.
+- Complete AI-P2 replay-based counterfactual dry-run with route and identifier impact summaries.
+- Complete AI-P3 anomaly and abuse detection with route spikes, retry loops, concentrated offenders, sensitive-route probing, Redis outage exposure, admin API visibility, and dashboard output.
 
 ## Remaining
 
 ### P0: Next Implementation Candidates
 
-- No P0 implementation candidates remain from the current queue.
+- No P0 implementation candidates remain from the AI research queue.
 
 ### P1: Product And Demo Polish
 
-- P1 product and demo polish queue is complete.
+- P1 AI research queue is complete.
 
 ### P2: Advanced Platform Enhancements
 
-- P2 advanced platform enhancement queue is complete.
+- AI-P4: Optional LLM policy copilot for explanations and validated policy drafts.
+- AI-P5: Research evaluation harness with repeatable traffic scenarios and recommendation-quality reporting.
 
 ## Resume Notes
 
-- The original portfolio upgrade backlog is complete through Phase 35. There are no remaining items in the current queue.
+- The original portfolio upgrade backlog is complete through Phase 35. The new queue is the AI research upgrade described in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md).
+- Start next with AI-P4: optional LLM policy copilot. Keep LLM use disabled by default, control-plane only, and outside the request enforcement path.
+- AI-P3 added `app/ai/anomalies.py`, includes anomaly summaries in `/ai/signals`, exposes `GET /admin/ai/anomalies`, and adds a dashboard Anomalies panel. Findings include stable IDs, type, severity, route or identifier scope, rationale, evidence, and suggested next actions.
+- AI-P2 added `app/ai/simulation.py` and extends dry-run reports with a `replay` section covering events replayed, observed/current/proposed denials, newly denied, newly allowed, route impact, identifier impact, and sensitive-route impact.
+- AI-P1 added deterministic advisor engines in `app/ai/advisors.py` for tuning, abuse, reliability, and algorithm recommendations. `/ai/recommendations` now returns schema version 2 recommendations with stable IDs, confidence, rationale, proposed changes, expected impact, and safety notes while preserving legacy recommendation fields.
+- AI-P0 added enriched telemetry fields for algorithm, fail mode, tier, owner, sensitivity, rule version, method, status code, and optional latency; SQLite telemetry stores migrate old schemas forward; `app/ai/features.py` summarizes route, identifier, and route-identifier pressure.
 - OpenAPI now includes examples for admin rule metadata, dry-run payloads and responses, import envelopes, rollback responses, and persistent telemetry filters.
 - Rule policies can now be exported with `GET /admin/rules/export` and restored with `POST /admin/rules/import`; imports validate before applying, record `import` history entries, and queue sensitive-route changes for approval.
 - `ADMIN_API_KEYS` accepts comma-separated named keys such as `primary:key-one,backup:key-two`; named keys work alongside `ADMIN_API_KEY`, provide default audit actors, and can be verified by name through `GET /admin/keys` without exposing secrets.
