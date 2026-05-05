@@ -157,6 +157,10 @@ input {
   flex-wrap: wrap;
 }
 
+.compact-actions {
+  justify-content: flex-end;
+}
+
 .grid {
   display: grid;
   grid-template-columns: minmax(320px, 1.1fr) minmax(300px, 0.9fr) minmax(320px, 1fr);
@@ -237,6 +241,13 @@ input {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin: 0 0 12px;
+}
+
+.audit-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .headers div,
@@ -337,6 +348,10 @@ pre {
     grid-template-columns: 1fr 1fr;
   }
 
+  .audit-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .rules-panel {
     grid-column: span 2;
   }
@@ -359,7 +374,8 @@ pre {
   .toolbar,
   .grid,
   .headers,
-  .summary-strip {
+  .summary-strip,
+  .audit-grid {
     grid-template-columns: 1fr;
   }
 

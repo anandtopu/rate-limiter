@@ -27,17 +27,19 @@
 - Add richer rule audit metadata such as actor, source, and reason.
 - Add optional OpenTelemetry OTLP exporter configuration.
 - Add richer persisted telemetry summaries in the dashboard.
+- Add generated SBOM artifact in CI.
+- Add UI controls for rule update audit metadata.
 
 ## Remaining
 
-- Add generated SBOM artifact in CI.
-- Add UI controls for rule update audit metadata.
 - Add a local collector compose profile for tracing demos.
 - Add persistent telemetry time-range filters.
 
 ## Resume Notes
 
-- The next technical backlog item is a generated SBOM artifact in CI.
+- The next technical backlog item is a local collector compose profile for tracing demos.
+- The demo dashboard now has Rule Change Controls for audited rule updates, reloads, and rollbacks. Mutations send `X-Audit-Actor`, `X-Audit-Source`, and `X-Audit-Reason` from the UI.
+- CI now generates and uploads a reproducible CycloneDX JSON SBOM as the `cyclonedx-sbom` artifact. Local developers can run `make sbom`.
 - The dashboard now has a Persisted Telemetry panel backed by `/admin/telemetry/persistent`, with counters, route summaries, top offenders, and recent persisted events. It reports disabled cleanly when persistence is off.
 - OTLP/HTTP trace export is controlled by `TRACE_OTLP_ENABLED`, `TRACE_OTLP_ENDPOINT`, `TRACE_OTLP_HEADERS`, and `TRACE_OTLP_TIMEOUT_S`; it only initializes when `ENABLE_TRACING=true`.
 - Rule history now records audit metadata for updates, reloads, and rollbacks. Admin callers can pass `X-Audit-Actor`, `X-Audit-Source`, and `X-Audit-Reason`; request ID and client host are captured automatically.

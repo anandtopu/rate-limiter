@@ -288,6 +288,8 @@ Use FastAPI static files plus one lightweight HTML/CSS/JavaScript page:
 - Add richer rule audit metadata such as actor, source, and reason. (Implemented in Phase 13)
 - Add optional OpenTelemetry OTLP exporter configuration. (Implemented in Phase 14)
 - Add richer persisted telemetry summaries in the dashboard. (Implemented in Phase 15)
+- Add generated SBOM artifact in CI. (Implemented in Phase 16)
+- Add UI controls for rule update audit metadata. (Implemented in Phase 17)
 
 ## 9. Proposed Milestones
 

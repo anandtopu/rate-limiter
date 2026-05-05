@@ -77,7 +77,7 @@ The target product is a demo-ready "Rate Limiter Control Plane + Enforcement API
 - No Prometheus-style metrics endpoint.
 - Redis failures are printed instead of structured logs.
 - No Docker health checks or Redis readiness endpoint.
-- Baseline had no CI workflow, linting, coverage gate, or dependency/security checks; the upgrade pass now includes CI, linting, tests, `pip-audit`, and Bandit.
+- Baseline had no CI workflow, linting, coverage gate, or dependency/security checks; the upgrade pass now includes CI, linting, tests, `pip-audit`, Bandit, and CycloneDX SBOM generation.
 
 ### Security Gaps
 
@@ -125,7 +125,7 @@ The MVP should make the project feel complete without turning it into a large pl
 - Add policy dry-run mode to compare proposed rules against observed traffic.
 - Add load-test scripts and benchmark results.
 - Add OpenTelemetry tracing and optional OTLP exporter configuration.
-- Add GitHub Actions CI. (Implemented with lint, tests, dependency audit, and static security scan.)
+- Add GitHub Actions CI. (Implemented with lint, tests, dependency audit, static security scan, and SBOM artifact upload.)
 
 ## 8. Functional Requirements
 

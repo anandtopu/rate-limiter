@@ -1,5 +1,6 @@
 -r requirements.txt
 
 bandit[toml]==1.9.4
+cyclonedx-bom==7.3.0
 pip-audit==2.10.0
 ruff==0.8.6

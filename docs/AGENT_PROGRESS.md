@@ -1,6 +1,6 @@
 # Agent Progress Tracker
 
-Last updated: 2026-05-04
+Last updated: 2026-05-05
 
 ## Current Runtime
 
@@ -39,6 +39,8 @@ Last updated: 2026-05-04
 | 13 | Done | Rule history audit metadata for updates, reloads, and rollbacks. |
 | 14 | Done | Optional OpenTelemetry OTLP/HTTP exporter configuration. |
 | 15 | Done | Persisted telemetry summaries in the demo dashboard. |
+| 16 | Done | Generated CycloneDX SBOM artifact in CI and local developer workflow. |
+| 17 | Done | Dashboard controls for audited rule updates, reloads, and rollbacks. |
 
 ## Verification Commands
 
@@ -46,8 +48,9 @@ Last updated: 2026-05-04
 .\.venv\Scripts\ruff.exe check .
 .\.venv\Scripts\pytest.exe -q
 .\.venv\Scripts\bandit.exe -q -r app -c pyproject.toml
+.\.venv\Scripts\cyclonedx-py.exe requirements requirements.txt --of JSON --output-reproducible --output-file sbom.json
 docker-compose build web
-docker-compose run --rm --no-deps web sh -lc "python -m pip install -r requirements-dev.txt && pip-audit -r requirements.txt --cache-dir .pip-audit-cache && bandit -q -r app -c pyproject.toml"
+docker-compose run --rm --no-deps web sh -lc "python -m pip install -r requirements-dev.txt && pip-audit -r requirements.txt --cache-dir .pip-audit-cache && bandit -q -r app -c pyproject.toml && cyclonedx-py requirements requirements.txt --of JSON --output-reproducible --output-file /tmp/sbom.json && test -s /tmp/sbom.json"
 docker-compose run --rm --no-deps web pytest -q
 docker-compose up -d
 ```
@@ -64,7 +67,5 @@ curl.exe -s http://localhost:8001/admin/telemetry/persistent -H "X-Admin-Key: de
 
 ## Next Recommended Work
 
-1. Add generated SBOM artifact in CI.
-2. Add UI controls for rule update audit metadata.
-3. Add a local collector compose profile for tracing demos.
-4. Add persistent telemetry time-range filters.
+1. Add a local collector compose profile for tracing demos.
+2. Add persistent telemetry time-range filters.

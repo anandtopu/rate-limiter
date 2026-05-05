@@ -364,3 +364,13 @@ docker compose exec web pytest -q
 - Result: `41 passed`.
 - Ran CI-style security checks in the Linux web container.
 - Result: `pip-audit` reported no known vulnerabilities and Bandit passed.
+
+## Phase 16 Verification: 2026-05-04
+
+- Added CycloneDX SBOM tooling to dev requirements:
+  - `cyclonedx-bom==7.3.0`
+- Added `make sbom`.
+- Added CI steps to generate a reproducible CycloneDX JSON SBOM from `requirements.txt` and upload it as the `cyclonedx-sbom` artifact.
+- Ignored local `sbom.json` in Git and Docker build context because CI owns the retained artifact.
+- Ran `.\.venv\Scripts\cyclonedx-py.exe requirements requirements.txt --of JSON --output-reproducible --output-file sbom.json`.
+- Result: generated CycloneDX JSON spec `1.6` with 13 components.

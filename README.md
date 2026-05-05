@@ -76,7 +76,7 @@ These are intentionally tracked in [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTA
 - **Atomicity**: Redis Lua scripting
 - **Validation**: Pydantic
 - **Testing**: Pytest, pytest-asyncio, fakeredis
-- **Security Checks**: pip-audit dependency audit and Bandit static scan
+- **Security Checks**: pip-audit dependency audit, Bandit static scan, and CycloneDX SBOM generation
 - **Demo UI**: Static HTML/CSS/JavaScript served by FastAPI
 - **Deployment**: Docker and Docker Compose
 
@@ -127,6 +127,7 @@ If an old virtual environment points to a missing Python installation, recreate 
 make test
 make lint
 make security
+make sbom
 make compose-up
 make load-test
 ```
@@ -137,6 +138,7 @@ Without `make`, the equivalent checks are:
 .\.venv\Scripts\pytest.exe -q
 .\.venv\Scripts\ruff.exe check .
 .\.venv\Scripts\bandit.exe -q -r app -c pyproject.toml
+.\.venv\Scripts\cyclonedx-py.exe requirements requirements.txt --of JSON --output-reproducible --output-file sbom.json
 docker compose up --build
 .\.venv\Scripts\python.exe scripts\load_test.py --base-url http://localhost:8001
 ```
@@ -299,5 +301,6 @@ Completed in this upgrade pass:
 - Phase 13: richer rule history audit metadata for updates, reloads, and rollbacks.
 - Phase 14: optional OpenTelemetry OTLP/HTTP exporter configuration.
 - Phase 15: persisted telemetry summaries in the demo dashboard.
+- Phase 16: generated CycloneDX SBOM artifact in CI and local developer workflow.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.

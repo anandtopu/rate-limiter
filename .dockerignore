@@ -18,5 +18,6 @@ htmlcov
 tmp
 tmp-test-data
 scratch_check
+sbom.json
 tmp*
 venv

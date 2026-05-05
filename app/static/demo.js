@@ -18,6 +18,9 @@ const els = {
   rulesBtn: document.querySelector("#rulesBtn"),
   historyBtn: document.querySelector("#historyBtn"),
   dryRunBtn: document.querySelector("#dryRunBtn"),
+  updateRulesBtn: document.querySelector("#updateRulesBtn"),
+  reloadRulesBtn: document.querySelector("#reloadRulesBtn"),
+  rollbackRulesBtn: document.querySelector("#rollbackRulesBtn"),
   statusBadge: document.querySelector("#statusBadge"),
   remainingMeter: document.querySelector("#remainingMeter"),
   limitValue: document.querySelector("#limitValue"),
@@ -38,9 +41,14 @@ const els = {
   historyOutput: document.querySelector("#historyOutput"),
   dryRunInput: document.querySelector("#dryRunInput"),
   dryRunOutput: document.querySelector("#dryRunOutput"),
+  auditActorInput: document.querySelector("#auditActorInput"),
+  auditSourceInput: document.querySelector("#auditSourceInput"),
+  auditReasonInput: document.querySelector("#auditReasonInput"),
+  rollbackVersionInput: document.querySelector("#rollbackVersionInput"),
+  ruleChangeOutput: document.querySelector("#ruleChangeOutput"),
 };
 
-function requestHeaders(includeAdmin = false) {
+function requestHeaders(includeAdmin = false, includeAudit = false) {
   const headers = {};
   const apiKey = els.clientSelect.value;
   const adminKey = els.adminKeyInput.value.trim();
@@ -51,6 +59,24 @@ function requestHeaders(includeAdmin = false) {
 
   if (includeAdmin && adminKey) {
     headers["X-Admin-Key"] = adminKey;
+  }
+
+  if (includeAudit) {
+    const actor = els.auditActorInput.value.trim();
+    const source = els.auditSourceInput.value.trim();
+    const reason = els.auditReasonInput.value.trim();
+
+    if (actor) {
+      headers["X-Audit-Actor"] = actor;
+    }
+
+    if (source) {
+      headers["X-Audit-Source"] = source;
+    }
+
+    if (reason) {
+      headers["X-Audit-Reason"] = reason;
+    }
   }
 
   return headers;
@@ -208,7 +234,13 @@ async function loadRules() {
 }
 
 async function loadHistory() {
-  await loadAdminJson("/admin/rules/history", { method: "GET" }, els.historyOutput);
+  const response = await fetch("/admin/rules/history", { headers: requestHeaders(true) });
+  const body = await readJson(response);
+  els.historyOutput.textContent = pretty(body);
+
+  if (!els.rollbackVersionInput.value && body.current_version > 1) {
+    els.rollbackVersionInput.value = String(body.current_version - 1);
+  }
 }
 
 async function dryRunRules() {
@@ -230,6 +262,72 @@ async function dryRunRules() {
   });
   const body = await readJson(response);
   els.dryRunOutput.textContent = pretty(body);
+}
+
+function parseRulesEditor(output) {
+  try {
+    return JSON.parse(els.dryRunInput.value);
+  } catch (error) {
+    output.textContent = pretty({ error: error.message });
+    return null;
+  }
+}
+
+async function applyRulesUpdate() {
+  const payload = parseRulesEditor(els.ruleChangeOutput);
+  if (!payload) {
+    return;
+  }
+
+  const response = await fetch("/admin/rules", {
+    method: "PUT",
+    headers: {
+      ...requestHeaders(true, true),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const body = await readJson(response);
+  els.ruleChangeOutput.textContent = pretty(body);
+
+  if (response.ok) {
+    els.rulesOutput.textContent = pretty(body);
+    await loadHistory();
+  }
+}
+
+async function reloadRules() {
+  const response = await fetch("/admin/rules/reload", {
+    method: "POST",
+    headers: requestHeaders(true, true),
+  });
+  const body = await readJson(response);
+  els.ruleChangeOutput.textContent = pretty(body);
+
+  if (response.ok) {
+    els.rulesOutput.textContent = pretty(body);
+    await loadHistory();
+  }
+}
+
+async function rollbackRules() {
+  const version = Number.parseInt(els.rollbackVersionInput.value, 10);
+  if (!Number.isInteger(version) || version < 1) {
+    els.ruleChangeOutput.textContent = pretty({ error: "Rollback version must be a positive integer." });
+    return;
+  }
+
+  const response = await fetch(`/admin/rules/rollback/${version}`, {
+    method: "POST",
+    headers: requestHeaders(true, true),
+  });
+  const body = await readJson(response);
+  els.ruleChangeOutput.textContent = pretty(body);
+
+  if (response.ok) {
+    els.rulesOutput.textContent = pretty(body);
+    await loadHistory();
+  }
 }
 
 async function refreshAll() {
@@ -295,6 +393,18 @@ els.historyBtn.addEventListener("click", () => {
 
 els.dryRunBtn.addEventListener("click", () => {
   dryRunRules();
+});
+
+els.updateRulesBtn.addEventListener("click", () => {
+  applyRulesUpdate();
+});
+
+els.reloadRulesBtn.addEventListener("click", () => {
+  reloadRules();
+});
+
+els.rollbackRulesBtn.addEventListener("click", () => {
+  rollbackRules();
 });
 
 checkReady();

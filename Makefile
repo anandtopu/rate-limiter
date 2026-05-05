@@ -6,9 +6,11 @@ UV ?= uv
 PIP_AUDIT ?= .venv/Scripts/pip-audit.exe
 PIP_AUDIT_CACHE ?= .pip-audit-cache
 BANDIT ?= .venv/Scripts/bandit.exe
+CYCLONEDX ?= .venv/Scripts/cyclonedx-py.exe
+SBOM_PATH ?= sbom.json
 BASE_URL ?= http://localhost:8001
 
-.PHONY: install dev test lint security format compose-up compose-down load-test
+.PHONY: install dev test lint security sbom format compose-up compose-down load-test
 
 install:
 	$(UV) pip install --python $(PYTHON) -r requirements-dev.txt
@@ -25,6 +27,9 @@ lint:
 security:
 	$(PIP_AUDIT) -r requirements.txt --cache-dir $(PIP_AUDIT_CACHE)
 	$(BANDIT) -q -r app -c pyproject.toml
+
+sbom:
+	$(CYCLONEDX) requirements requirements.txt --of JSON --output-reproducible --output-file $(SBOM_PATH)
 
 format:
 	$(RUFF) format .

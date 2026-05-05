@@ -46,6 +46,7 @@ htmlcov/
 data/
 *.sqlite3
 *.sqlite3-*
+sbom.json
 
 # OS / editor
 .DS_Store

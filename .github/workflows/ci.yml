@@ -32,5 +32,15 @@ jobs:
       - name: Static security scan
         run: bandit -q -r app -c pyproject.toml
 
+      - name: Generate SBOM
+        run: cyclonedx-py requirements requirements.txt --of JSON --output-reproducible --output-file sbom.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: cyclonedx-sbom
+          path: sbom.json
+          if-no-files-found: error
+
       - name: Test
         run: pytest -q
