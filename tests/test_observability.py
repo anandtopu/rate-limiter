@@ -1,10 +1,13 @@
 import json
+import sqlite3
+from pathlib import Path
+from uuid import uuid4
 
 import pytest
 import redis.asyncio as redis
 
 import app.api.depends as depends
-from app.ai.telemetry import telemetry_hub
+from app.ai.telemetry import RateLimitEvent, telemetry_hub
 from app.config import settings
 from app.core.limiter import RedisRateLimiter
 from app.main import app
@@ -34,6 +37,26 @@ class BrokenTelemetryStore:
 
     def recent(self, limit: int = 100):
         raise RuntimeError("store unavailable")
+
+
+def persisted_event(
+    *,
+    timestamp: float,
+    route_path: str = "/api/data",
+    identifier: str = "persisted_user",
+    allowed: bool = True,
+) -> RateLimitEvent:
+    return RateLimitEvent(
+        timestamp=timestamp,
+        route_path=route_path,
+        identifier=identifier,
+        allowed=allowed,
+        remaining=4 if allowed else 0,
+        capacity=5,
+        rate=1.0,
+        retry_after_s=None if allowed else 1,
+        redis_fail_open=False,
+    )
 
 
 @pytest.mark.asyncio
@@ -164,6 +187,130 @@ async def test_persistent_telemetry_admin_endpoint(client):
     assert body["analytics"]["top_offenders"] == []
     assert body["events"][0]["route_path"] == "/api/data"
     assert body["events"][0]["identifier"] == "persisted_user"
+    assert body["events"][0]["algorithm"] == "token_bucket"
+    assert body["events"][0]["fail_mode"] == "open"
+    assert body["events"][0]["tier"] == "free"
+    assert body["events"][0]["owner"] == "api-platform"
+    assert body["events"][0]["sensitivity"] == "internal"
+    assert body["events"][0]["method"] == "GET"
+    assert body["events"][0]["status_code"] == 200
+    assert isinstance(body["events"][0]["rule_version"], int)
+
+
+@pytest.mark.asyncio
+async def test_persistent_telemetry_admin_endpoint_filters_by_time_range(client):
+    store = SQLiteTelemetryStore(f"tmp-test-data/telemetry/{uuid4()}-ranged-events.sqlite3")
+    telemetry_hub.set_store(store)
+    store.record(persisted_event(timestamp=100, identifier="old_user", allowed=False))
+    store.record(persisted_event(timestamp=200, identifier="kept_user", allowed=False))
+    store.record(persisted_event(timestamp=300, identifier="future_user"))
+
+    response = await client.get(
+        "/admin/telemetry/persistent?since=150&until=250&limit=10",
+        headers={"X-Admin-Key": "dev-admin-key"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["filters"] == {"limit": 10, "since": 150.0, "until": 250.0}
+    assert body["summary"]["events"] == 1
+    assert body["summary"]["denied"] == 1
+    assert body["analytics"]["routes"] == [
+        {
+            "route": "/api/data",
+            "requests": 1,
+            "denied": 1,
+            "denied_pct": 100.0,
+            "redis_fail_open": 0,
+        }
+    ]
+    assert body["analytics"]["top_offenders"] == [{"identifier": "kept_user", "denied": 1}]
+    assert [event["identifier"] for event in body["events"]] == ["kept_user"]
+
+
+def test_sqlite_telemetry_store_migrates_old_schema():
+    db_path = f"tmp-test-data/telemetry/{uuid4()}-old-schema.sqlite3"
+    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            CREATE TABLE rate_limit_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp REAL NOT NULL,
+                route_path TEXT NOT NULL,
+                identifier TEXT NOT NULL,
+                allowed INTEGER NOT NULL,
+                remaining INTEGER NOT NULL,
+                capacity INTEGER NOT NULL,
+                rate REAL NOT NULL,
+                retry_after_s INTEGER,
+                redis_fail_open INTEGER NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO rate_limit_events (
+                timestamp,
+                route_path,
+                identifier,
+                allowed,
+                remaining,
+                capacity,
+                rate,
+                retry_after_s,
+                redis_fail_open
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (100.0, "/api/data", "old_schema_user", 1, 4, 5, 1.0, None, 0),
+        )
+
+    store = SQLiteTelemetryStore(db_path)
+    store.record(
+        RateLimitEvent(
+            timestamp=200.0,
+            route_path="/api/accounts/{account_id}/data",
+            identifier="new_schema_user",
+            allowed=False,
+            remaining=0,
+            capacity=5,
+            rate=1.0,
+            retry_after_s=1,
+            redis_fail_open=True,
+            algorithm="sliding_window",
+            fail_mode="closed",
+            tier="enterprise",
+            owner="accounts",
+            sensitivity="sensitive",
+            rule_version=7,
+            method="GET",
+            status_code=429,
+            latency_ms=12.5,
+        )
+    )
+
+    events = store.recent(limit=2)
+    new_event = events[0]
+    old_event = events[1]
+    assert new_event["algorithm"] == "sliding_window"
+    assert new_event["fail_mode"] == "closed"
+    assert new_event["rule_version"] == 7
+    assert new_event["status_code"] == 429
+    assert new_event["latency_ms"] == 12.5
+    assert old_event["identifier"] == "old_schema_user"
+    assert old_event["algorithm"] is None
+
+
+@pytest.mark.asyncio
+async def test_persistent_telemetry_rejects_invalid_time_range(client):
+    response = await client.get(
+        "/admin/telemetry/persistent?since=250&until=150",
+        headers={"X-Admin-Key": "dev-admin-key"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "since must be less than or equal to until"
 
 
 @pytest.mark.asyncio

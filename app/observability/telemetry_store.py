@@ -2,6 +2,18 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+TELEMETRY_SCHEMA_COLUMNS = {
+    "algorithm": "TEXT",
+    "fail_mode": "TEXT",
+    "tier": "TEXT",
+    "owner": "TEXT",
+    "sensitivity": "TEXT",
+    "rule_version": "INTEGER",
+    "method": "TEXT",
+    "status_code": "INTEGER",
+    "latency_ms": "REAL",
+}
+
 
 class SQLiteTelemetryStore:
     def __init__(self, path: str):
@@ -26,16 +38,34 @@ class SQLiteTelemetryStore:
                     capacity INTEGER NOT NULL,
                     rate REAL NOT NULL,
                     retry_after_s INTEGER,
-                    redis_fail_open INTEGER NOT NULL
+                    redis_fail_open INTEGER NOT NULL,
+                    algorithm TEXT,
+                    fail_mode TEXT,
+                    tier TEXT,
+                    owner TEXT,
+                    sensitivity TEXT,
+                    rule_version INTEGER,
+                    method TEXT,
+                    status_code INTEGER,
+                    latency_ms REAL
                 )
                 """
             )
+            self._migrate_schema(conn)
             conn.execute(
                 """
                 CREATE INDEX IF NOT EXISTS idx_rate_limit_events_timestamp
                 ON rate_limit_events(timestamp)
                 """
             )
+
+    def _migrate_schema(self, conn: sqlite3.Connection) -> None:
+        existing_columns = {
+            row[1] for row in conn.execute("PRAGMA table_info(rate_limit_events)").fetchall()
+        }
+        for column, column_type in TELEMETRY_SCHEMA_COLUMNS.items():
+            if column not in existing_columns:
+                conn.execute(f"ALTER TABLE rate_limit_events ADD COLUMN {column} {column_type}")
 
     def record(self, event: Any) -> None:
         with self._connect() as conn:
@@ -50,9 +80,18 @@ class SQLiteTelemetryStore:
                     capacity,
                     rate,
                     retry_after_s,
-                    redis_fail_open
+                    redis_fail_open,
+                    algorithm,
+                    fail_mode,
+                    tier,
+                    owner,
+                    sensitivity,
+                    rule_version,
+                    method,
+                    status_code,
+                    latency_ms
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     event.timestamp,
@@ -64,14 +103,50 @@ class SQLiteTelemetryStore:
                     event.rate,
                     event.retry_after_s,
                     int(event.redis_fail_open),
+                    getattr(event, "algorithm", None),
+                    getattr(event, "fail_mode", None),
+                    getattr(event, "tier", None),
+                    getattr(event, "owner", None),
+                    getattr(event, "sensitivity", None),
+                    getattr(event, "rule_version", None),
+                    getattr(event, "method", None),
+                    getattr(event, "status_code", None),
+                    getattr(event, "latency_ms", None),
                 ),
             )
 
-    def recent(self, limit: int = 100) -> list[dict[str, Any]]:
+    def _time_filter(
+        self,
+        since: float | None = None,
+        until: float | None = None,
+    ) -> tuple[str, list[float]]:
+        clauses = []
+        params: list[float] = []
+
+        if since is not None:
+            clauses.append("timestamp >= ?")
+            params.append(since)
+
+        if until is not None:
+            clauses.append("timestamp <= ?")
+            params.append(until)
+
+        if not clauses:
+            return "", params
+
+        return f"WHERE {' AND '.join(clauses)}", params
+
+    def recent(
+        self,
+        limit: int = 100,
+        since: float | None = None,
+        until: float | None = None,
+    ) -> list[dict[str, Any]]:
+        where_sql, params = self._time_filter(since=since, until=until)
         with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
-                """
+                f"""
                 SELECT
                     id,
                     timestamp,
@@ -82,12 +157,22 @@ class SQLiteTelemetryStore:
                     capacity,
                     rate,
                     retry_after_s,
-                    redis_fail_open
+                    redis_fail_open,
+                    algorithm,
+                    fail_mode,
+                    tier,
+                    owner,
+                    sensitivity,
+                    rule_version,
+                    method,
+                    status_code,
+                    latency_ms
                 FROM rate_limit_events
+                {where_sql}
                 ORDER BY id DESC
                 LIMIT ?
                 """,
-                (limit,),
+                (*params, limit),
             ).fetchall()
 
         return [
@@ -99,17 +184,24 @@ class SQLiteTelemetryStore:
             for row in rows
         ]
 
-    def summary(self) -> dict[str, Any]:
+    def summary(
+        self,
+        since: float | None = None,
+        until: float | None = None,
+    ) -> dict[str, Any]:
+        where_sql, params = self._time_filter(since=since, until=until)
         with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             row = conn.execute(
-                """
+                f"""
                 SELECT
                     COUNT(*) AS events,
                     SUM(CASE WHEN allowed = 0 THEN 1 ELSE 0 END) AS denied,
                     SUM(CASE WHEN redis_fail_open = 1 THEN 1 ELSE 0 END) AS redis_fail_open
                 FROM rate_limit_events
-                """
+                {where_sql}
+                """,
+                params,
             ).fetchone()
 
         return {
@@ -119,35 +211,43 @@ class SQLiteTelemetryStore:
             "redis_fail_open": int(row["redis_fail_open"] or 0),
         }
 
-    def analytics(self, limit: int = 5) -> dict[str, Any]:
+    def analytics(
+        self,
+        limit: int = 5,
+        since: float | None = None,
+        until: float | None = None,
+    ) -> dict[str, Any]:
+        where_sql, params = self._time_filter(since=since, until=until)
         with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             routes = conn.execute(
-                """
+                f"""
                 SELECT
                     route_path,
                     COUNT(*) AS requests,
                     SUM(CASE WHEN allowed = 0 THEN 1 ELSE 0 END) AS denied,
                     SUM(CASE WHEN redis_fail_open = 1 THEN 1 ELSE 0 END) AS redis_fail_open
                 FROM rate_limit_events
+                {where_sql}
                 GROUP BY route_path
                 ORDER BY requests DESC, route_path ASC
                 LIMIT ?
                 """,
-                (limit,),
+                (*params, limit),
             ).fetchall()
             offenders = conn.execute(
-                """
+                f"""
                 SELECT
                     identifier,
                     COUNT(*) AS denied
                 FROM rate_limit_events
                 WHERE allowed = 0
+                {"AND " + where_sql.removeprefix("WHERE ") if where_sql else ""}
                 GROUP BY identifier
                 ORDER BY denied DESC, identifier ASC
                 LIMIT ?
                 """,
-                (limit,),
+                (*params, limit),
             ).fetchall()
 
         return {

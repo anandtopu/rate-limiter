@@ -253,46 +253,94 @@ Use FastAPI static files plus one lightweight HTML/CSS/JavaScript page:
 
 ## 8. Suggested Backlog
 
-### P0
+### Original MVP Backlog
 
-- Correct `Retry-After`.
-- Validate positive rule values.
-- Add admin API key protection for AI/admin endpoints.
-- Add rule validation endpoint.
-- Update README positioning.
+The original MVP and follow-up backlog has been implemented through Phase 35. Completed work includes limiter correctness, admin APIs, dashboard, metrics, tracing, persistent telemetry, CI/security checks, rule history, policy dry runs, multiple algorithms, proxy trust, templated route keys, rule metadata, sensitive-rule approval workflow, optional SQLite-backed rule storage, pending-approval dashboard controls, a filtered rule-change audit view, a Redis outage demo script, recommendation-to-dry-run policy drafts, documented load-test benchmark output, CI coverage reporting, sliding-window rate limiting, multiple named admin keys with safe key-name introspection, rule import/export helpers, and OpenAPI examples for admin workflows.
 
-### P1
+### P0: Next Implementation Candidates
 
-- Add rule update/reload APIs.
-- Add demo dashboard.
-- Add metrics endpoint.
-- Add request ID middleware and structured logs.
-- Split platform health from rate-limited demo health.
+- No P0 implementation candidates remain from the AI research queue.
 
-### P2
+### P1: Product And Demo Polish
 
-- Add route-level fail-open/fail-closed.
-- Hash identifiers in Redis keys and telemetry.
-- Add CI workflow, linting, dependency audit, and static security scanning.
-- Add `.env.example`.
-- Add load-test script.
+- P1 AI research queue is complete.
 
-### P3
+### P2: Advanced Platform Enhancements
 
-- Add rule version history. (Implemented in Phase 6)
-- Add policy dry-run mode. (Implemented in Phase 7)
-- Add multiple limiter algorithms. (Implemented in Phase 8)
-- Add OpenTelemetry tracing. (Implemented in Phase 9)
-- Persist telemetry in Redis streams or SQLite. (SQLite implemented in Phase 10)
-- Add dependency/security scanning in CI. (Implemented in Phase 12)
-- Add richer rule audit metadata such as actor, source, and reason. (Implemented in Phase 13)
-- Add optional OpenTelemetry OTLP exporter configuration. (Implemented in Phase 14)
-- Add richer persisted telemetry summaries in the dashboard. (Implemented in Phase 15)
-- Add generated SBOM artifact in CI. (Implemented in Phase 16)
-- Add UI controls for rule update audit metadata. (Implemented in Phase 17)
-- Add a local collector compose profile for tracing demos. (Implemented in Phase 18)
+- P2 AI research queue is complete through AI-P5.
 
-## 9. Proposed Milestones
+## 9. AI Research Upgrade
+
+The AI research track extends the completed control-plane work into a safe advisor system. The detailed backlog lives in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md), and the architecture/data-model design lives in [AI_FEATURE_DESIGN.md](AI_FEATURE_DESIGN.md).
+
+### Architecture Upgrade
+
+AI should be a control-plane subsystem, not an enforcement dependency. The request path remains:
+
+```text
+FastAPI dependency -> RulesManager -> Redis Lua script -> response headers -> telemetry
+```
+
+The AI path consumes telemetry after decisions are made:
+
+```text
+Telemetry -> feature extraction -> advisors -> policy proposal -> validate -> dry-run -> approval -> apply/rollback
+```
+
+This keeps runtime behavior deterministic and gives every AI proposal the same safety controls as hand-written policy changes.
+
+### New Modules
+
+- `app/ai/features.py`: converts raw decisions into route, identifier, and route-identifier features.
+- `app/ai/advisors.py`: deterministic advisor engines for tuning, abuse, reliability, and algorithm selection.
+- `app/ai/simulation.py`: replay-based counterfactual policy simulator.
+- `app/ai/anomalies.py`: deterministic anomaly detectors for spikes, retry loops, concentrated offenders, sensitive-route probing, and Redis outage exposure.
+- `app/ai/copilot.py`: optional LLM adapter and policy-draft workflow, disabled by default, with fake and OpenAI-compatible HTTP providers.
+- `scripts/ai_eval.py`: repeatable research evaluation scenarios and reports.
+- `scripts/ai_live_eval.py`: live HTTP evaluation that compares Redis-backed response captures with the synthetic baseline.
+- `scripts/ai_research_report.py`: compact Markdown report generator for synthetic, live, outage, and persisted evaluation summaries.
+- `scripts/ai_ci_dry_run.py`: CI-friendly wrapper that produces synthetic, seeded SQLite persisted, and research-report artifacts without live services.
+
+### Implementation Sequence
+
+1. Extend telemetry data capture and persistence.
+2. Build feature extraction with deterministic tests.
+3. Replace threshold-only recommendations with advisor v2.
+4. Upgrade dry-run with replay simulation.
+5. Add anomaly detection and dashboard visibility.
+6. Add optional LLM copilot behind explicit configuration.
+7. Add evaluation scenarios and document research results.
+8. Harden the copilot provider boundary with a real HTTP adapter while preserving offline fake-provider tests.
+9. Add a live HTTP evaluation harness for running-app comparison against the synthetic AI baseline.
+10. Add persisted telemetry replay windows for real demo-run evaluation reports.
+11. Add opt-in Redis outage mode to the live evaluator for end-to-end reliability-scenario coverage.
+12. Add a generated research report artifact that combines available AI evaluation summaries.
+13. Add a CI-friendly AI dry-run artifact path that does not require Docker, Redis, network access, or a running app.
+14. Expose the generated AI research report artifact through the admin API and demo dashboard.
+15. Run the CI-friendly AI dry-run in GitHub Actions and upload its generated artifact bundle.
+16. Add raw Markdown and attachment download response modes for the AI research report endpoint.
+17. Add manifest/index files to the AI CI artifact bundle for reviewer navigation.
+18. Add a dashboard download control for the generated AI research report Markdown artifact.
+19. Add CI artifact reviewer guidance for coverage, SBOM, and AI dry-run bundles.
+20. Add dashboard report download filename and byte-count feedback.
+21. Add seeded scenario discovery to the CI dry-run script.
+22. Refresh verification and generated AI CI artifacts after the reviewer-ergonomics batch.
+23. Add an optional dashboard screenshot refresh helper for the AI Research Report panel.
+24. Configure explicit CI artifact retention for coverage, SBOM, and AI dry-run bundles.
+25. Add standard freshness headers to generated AI research report responses.
+26. Honor conditional request headers for unchanged generated AI research report responses.
+
+### Safety Requirements
+
+- AI output must never apply rules directly.
+- Generated policies must pass validation before dry-run.
+- Sensitive-route changes must use pending approval.
+- Recommendations must include confidence, rationale, signals, expected impact, and safety notes.
+- LLM prompts must avoid raw identifiers when `HASH_IDENTIFIERS=true`.
+- Local tests must run without network or model-provider credentials.
+- Provider calls must stay in admin control-plane endpoints and return provider failures without affecting enforcement traffic.
+
+## 10. Proposed Milestones
 
 ### Milestone 1: Correct Core
 
@@ -320,7 +368,7 @@ Use FastAPI static files plus one lightweight HTML/CSS/JavaScript page:
 - Readiness endpoint.
 - CI and quality checks.
 
-## 10. Review Checklist
+## 11. Review Checklist
 
 - Does the code still teach the token-bucket algorithm clearly?
 - Can a reviewer trigger and understand `429` behavior quickly?

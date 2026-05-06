@@ -107,6 +107,54 @@ local reset_timestamp = math.ceil(now + ttl)
 return { allowed and 1 or 0, tostring(remaining), retry_after, reset_timestamp }
 """
 
+SLIDING_WINDOW_SCRIPT = """
+local capacity = tonumber(ARGV[1])
+local now = tonumber(ARGV[2])
+local requested = tonumber(ARGV[3])
+local window_seconds = tonumber(ARGV[4])
+local request_id = ARGV[5]
+
+local window_start = now - window_seconds
+redis.call("ZREMRANGEBYSCORE", KEYS[1], "-inf", window_start)
+
+local current = tonumber(redis.call("ZCARD", KEYS[1]))
+local allowed = (current + requested) <= capacity
+
+if allowed then
+  for i = 1, requested do
+    redis.call("ZADD", KEYS[1], now, request_id .. ":" .. i)
+  end
+  current = current + requested
+end
+
+redis.call("EXPIRE", KEYS[1], math.ceil(window_seconds * 2))
+
+local remaining = capacity - current
+if remaining < 0 then
+  remaining = 0
+end
+
+local retry_after = 0
+local reset_timestamp = math.ceil(now + window_seconds)
+if not allowed then
+  local oldest = redis.call("ZRANGE", KEYS[1], 0, 0, "WITHSCORES")
+  if oldest[2] ~= nil then
+    retry_after = math.ceil((tonumber(oldest[2]) + window_seconds) - now)
+  end
+  if retry_after < 1 then
+    retry_after = 1
+  end
+  reset_timestamp = math.ceil(now + retry_after)
+elseif current > 0 then
+  local oldest = redis.call("ZRANGE", KEYS[1], 0, 0, "WITHSCORES")
+  if oldest[2] ~= nil then
+    reset_timestamp = math.ceil(tonumber(oldest[2]) + window_seconds)
+  end
+end
+
+return { allowed and 1 or 0, tostring(remaining), retry_after, reset_timestamp }
+"""
+
 
 @dataclass(frozen=True)
 class LimiterResult:
@@ -123,6 +171,8 @@ class RedisRateLimiter:
         self.redis = redis_client
         self.token_bucket_script = self.redis.register_script(TOKEN_BUCKET_SCRIPT)
         self.fixed_window_script = self.redis.register_script(FIXED_WINDOW_SCRIPT)
+        self.sliding_window_script = self.redis.register_script(SLIDING_WINDOW_SCRIPT)
+        self._request_sequence = 0
 
     async def is_allowed(
         self,
@@ -131,7 +181,7 @@ class RedisRateLimiter:
         capacity: int,
         requested: int = 1,
         fail_mode: Literal["open", "closed"] = "open",
-        algorithm: Literal["token_bucket", "fixed_window"] = "token_bucket",
+        algorithm: Literal["token_bucket", "fixed_window", "sliding_window"] = "token_bucket",
     ) -> LimiterResult:
         """
         Check if a request is allowed based on the Token Bucket algorithm.
@@ -146,6 +196,14 @@ class RedisRateLimiter:
                 result = await self.fixed_window_script(
                     keys=[key],
                     args=[capacity, now, requested, window_seconds],
+                )
+            elif algorithm == "sliding_window":
+                window_seconds = max(1, math.ceil(capacity / rate))
+                self._request_sequence += 1
+                request_id = f"{now}:{id(self)}:{self._request_sequence}"
+                result = await self.sliding_window_script(
+                    keys=[key],
+                    args=[capacity, now, requested, window_seconds, request_id],
                 )
             else:
                 result = await self.token_bucket_script(
@@ -173,9 +231,10 @@ class RedisRateLimiter:
                 )
 
             remaining = max(0, capacity - requested)
-            time_to_full = math.ceil(capacity / rate) if algorithm == "fixed_window" else (
-                capacity - remaining
-            ) / rate
+            if algorithm in {"fixed_window", "sliding_window"}:
+                time_to_full = math.ceil(capacity / rate)
+            else:
+                time_to_full = (capacity - remaining) / rate
             return LimiterResult(
                 allowed=True,
                 remaining=remaining,

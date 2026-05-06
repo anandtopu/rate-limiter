@@ -10,13 +10,36 @@ services:
       - TRACE_OTLP_ENABLED=${TRACE_OTLP_ENABLED:-false}
       - TRACE_OTLP_ENDPOINT=${TRACE_OTLP_ENDPOINT:-http://otel-collector:4318/v1/traces}
       - TRACE_OTLP_TIMEOUT_S=${TRACE_OTLP_TIMEOUT_S:-5}
+      - PERSIST_TELEMETRY=${PERSIST_TELEMETRY:-false}
+      - TELEMETRY_DB_PATH=${TELEMETRY_DB_PATH:-data/telemetry.sqlite3}
+      - TRUSTED_PROXY_IPS=${TRUSTED_PROXY_IPS:-}
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=2).read()"
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
 
   redis:
     image: redis:7-alpine
     ports:
       - "6378:6379"
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.115.1

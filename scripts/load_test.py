@@ -20,6 +20,13 @@ SCENARIOS = [
     Scenario("free-data", "free_user_key", "/api/data", 12, 4),
     Scenario("premium-data", "premium_user_key", "/api/data", 12, 4),
     Scenario("limited-health", "abusive_user_key", "/api/limited-health", 14, 6),
+    Scenario(
+        "templated-account-data",
+        "templated_load_user",
+        "/api/accounts/load-test/data",
+        12,
+        4,
+    ),
 ]
 
 

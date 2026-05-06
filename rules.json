@@ -7,7 +7,9 @@
         "algorithm": "token_bucket",
         "fail_mode": "open",
         "description": "Default demo data API limit",
-        "tier": "free"
+        "tier": "free",
+        "owner": "api-platform",
+        "sensitivity": "internal"
       },
       "overrides": {
         "127.0.0.1": {
@@ -16,7 +18,9 @@
           "algorithm": "token_bucket",
           "fail_mode": "open",
           "description": "Local anonymous demo client",
-          "tier": "anonymous"
+          "tier": "anonymous",
+          "owner": "api-platform",
+          "sensitivity": "public"
         },
         "premium_user_key": {
           "rate": 10.0,
@@ -24,7 +28,9 @@
           "algorithm": "token_bucket",
           "fail_mode": "open",
           "description": "Premium demo client",
-          "tier": "premium"
+          "tier": "premium",
+          "owner": "customer-platform",
+          "sensitivity": "internal"
         }
       }
     },
@@ -35,7 +41,21 @@
         "algorithm": "fixed_window",
         "fail_mode": "closed",
         "description": "Rate-limited health-style demo route",
-        "tier": "platform"
+        "tier": "platform",
+        "owner": "sre",
+        "sensitivity": "public"
+      }
+    },
+    "/api/accounts/{account_id}/data": {
+      "global_limit": {
+        "rate": 1.0,
+        "capacity": 5,
+        "algorithm": "sliding_window",
+        "fail_mode": "open",
+        "description": "Templated account data demo route",
+        "tier": "free",
+        "owner": "accounts",
+        "sensitivity": "sensitive"
       }
     }
   }

@@ -1,11 +1,13 @@
 import asyncio
 import json
+import logging
 from pathlib import Path
 
 import pytest
 import redis.asyncio as redis
 
 import app.api.depends as depends
+from app.config import settings
 from app.core.limiter import RedisRateLimiter
 from app.core.rules import RulesManager
 
@@ -70,6 +72,172 @@ async def test_fixed_window_route_rule(client):
     assert response.status_code == 429
     assert response.headers["x-ratelimit-algorithm"] == "fixed_window"
     assert "retry-after" in response.headers
+
+
+@pytest.mark.asyncio
+async def test_sliding_window_route_rule(client):
+    rules_path = "tmp-test-data/sliding-window-api/rules.json"
+
+    Path(rules_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(rules_path).write_text(
+        json.dumps(
+            {
+                "routes": {
+                    "/api/data": {
+                        "global_limit": {
+                            "rate": 1.0,
+                            "capacity": 2,
+                            "algorithm": "sliding_window",
+                            "fail_mode": "open",
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    depends.rules_manager = RulesManager(rules_path)
+
+    headers = {"X-API-Key": "sliding_window_user"}
+    assert (await client.get("/api/data", headers=headers)).status_code == 200
+    response = await client.get("/api/data", headers=headers)
+    assert response.status_code == 200
+    assert response.headers["x-ratelimit-algorithm"] == "sliding_window"
+
+    response = await client.get("/api/data", headers=headers)
+    assert response.status_code == 429
+    assert response.headers["x-ratelimit-algorithm"] == "sliding_window"
+    assert "retry-after" in response.headers
+
+
+@pytest.mark.asyncio
+async def test_templated_route_uses_route_pattern_for_limits(client):
+    rules_path = "tmp-test-data/templated-route/rules.json"
+    Path(rules_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(rules_path).write_text(
+        json.dumps(
+            {
+                "routes": {
+                    "/api/accounts/{account_id}/data": {
+                        "global_limit": {
+                            "rate": 0.001,
+                            "capacity": 1,
+                            "fail_mode": "open",
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    depends.rules_manager = RulesManager(rules_path)
+
+    headers = {"X-API-Key": "templated_user"}
+    first = await client.get("/api/accounts/acct_1/data", headers=headers)
+    second = await client.get("/api/accounts/acct_2/data", headers=headers)
+
+    assert first.status_code == 200
+    assert first.json()["account_id"] == "acct_1"
+    assert second.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_rule_metadata_is_included_in_decision_logs(client, caplog):
+    rules_path = "tmp-test-data/rule-metadata/rules.json"
+    Path(rules_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(rules_path).write_text(
+        json.dumps(
+            {
+                "routes": {
+                    "/api/accounts/{account_id}/data": {
+                        "global_limit": {
+                            "rate": 1.0,
+                            "capacity": 2,
+                            "fail_mode": "open",
+                            "tier": "enterprise",
+                            "owner": "accounts",
+                            "sensitivity": "sensitive",
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    depends.rules_manager = RulesManager(rules_path)
+    caplog.set_level(logging.INFO, logger="rate_limiter")
+
+    response = await client.get(
+        "/api/accounts/acct_metadata/data",
+        headers={"X-API-Key": "metadata_user"},
+    )
+
+    assert response.status_code == 200
+    assert "route=/api/accounts/{account_id}/data" in caplog.text
+    assert "tier=enterprise" in caplog.text
+    assert "owner=accounts" in caplog.text
+    assert "sensitivity=sensitive" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_forwarded_for_is_ignored_without_trusted_proxy(client):
+    rules_path = "tmp-test-data/xff-untrusted/rules.json"
+    Path(rules_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(rules_path).write_text(
+        json.dumps(
+            {
+                "routes": {
+                    "/api/data": {
+                        "global_limit": {
+                            "rate": 0.001,
+                            "capacity": 1,
+                            "fail_mode": "open",
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    depends.rules_manager = RulesManager(rules_path)
+
+    first = await client.get("/api/data", headers={"X-Forwarded-For": "203.0.113.10"})
+    second = await client.get("/api/data", headers={"X-Forwarded-For": "203.0.113.11"})
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_forwarded_for_is_used_for_trusted_proxy(client):
+    settings.trusted_proxy_ips = "127.0.0.1"
+    rules_path = "tmp-test-data/xff-trusted/rules.json"
+    Path(rules_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(rules_path).write_text(
+        json.dumps(
+            {
+                "routes": {
+                    "/api/data": {
+                        "global_limit": {
+                            "rate": 0.001,
+                            "capacity": 1,
+                            "fail_mode": "open",
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    depends.rules_manager = RulesManager(rules_path)
+
+    first = await client.get("/api/data", headers={"X-Forwarded-For": "203.0.113.10"})
+    second = await client.get("/api/data", headers={"X-Forwarded-For": "203.0.113.11"})
+    third = await client.get("/api/data", headers={"X-Forwarded-For": "203.0.113.10"})
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert third.status_code == 429
 
 
 @pytest.mark.asyncio

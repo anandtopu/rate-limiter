@@ -15,8 +15,17 @@ const els = {
   signalsBtn: document.querySelector("#signalsBtn"),
   persistentTelemetryBtn: document.querySelector("#persistentTelemetryBtn"),
   recommendationsBtn: document.querySelector("#recommendationsBtn"),
+  recommendationDraftBtn: document.querySelector("#recommendationDraftBtn"),
+  anomaliesBtn: document.querySelector("#anomaliesBtn"),
+  aiResearchReportBtn: document.querySelector("#aiResearchReportBtn"),
+  aiResearchReportDownloadBtn: document.querySelector("#aiResearchReportDownloadBtn"),
+  policyCopilotBtn: document.querySelector("#policyCopilotBtn"),
   rulesBtn: document.querySelector("#rulesBtn"),
   historyBtn: document.querySelector("#historyBtn"),
+  auditViewBtn: document.querySelector("#auditViewBtn"),
+  pendingApprovalsBtn: document.querySelector("#pendingApprovalsBtn"),
+  approvePendingBtn: document.querySelector("#approvePendingBtn"),
+  rejectPendingBtn: document.querySelector("#rejectPendingBtn"),
   dryRunBtn: document.querySelector("#dryRunBtn"),
   updateRulesBtn: document.querySelector("#updateRulesBtn"),
   reloadRulesBtn: document.querySelector("#reloadRulesBtn"),
@@ -35,10 +44,27 @@ const els = {
   persistedEventsValue: document.querySelector("#persistedEventsValue"),
   persistedDeniedValue: document.querySelector("#persistedDeniedValue"),
   persistedFailOpenValue: document.querySelector("#persistedFailOpenValue"),
+  persistentRangeSelect: document.querySelector("#persistentRangeSelect"),
+  persistentLimitInput: document.querySelector("#persistentLimitInput"),
   persistentTelemetryOutput: document.querySelector("#persistentTelemetryOutput"),
   recommendationsOutput: document.querySelector("#recommendationsOutput"),
+  anomaliesOutput: document.querySelector("#anomaliesOutput"),
+  aiResearchReportOutput: document.querySelector("#aiResearchReportOutput"),
+  policyCopilotPromptInput: document.querySelector("#policyCopilotPromptInput"),
+  policyCopilotIncludeDraftInput: document.querySelector("#policyCopilotIncludeDraftInput"),
+  policyCopilotOutput: document.querySelector("#policyCopilotOutput"),
   rulesOutput: document.querySelector("#rulesOutput"),
   historyOutput: document.querySelector("#historyOutput"),
+  auditRouteFilterInput: document.querySelector("#auditRouteFilterInput"),
+  auditActorFilterInput: document.querySelector("#auditActorFilterInput"),
+  auditActionFilterSelect: document.querySelector("#auditActionFilterSelect"),
+  auditSensitivityFilterSelect: document.querySelector("#auditSensitivityFilterSelect"),
+  auditRangeFilterSelect: document.querySelector("#auditRangeFilterSelect"),
+  auditLimitFilterInput: document.querySelector("#auditLimitFilterInput"),
+  auditViewOutput: document.querySelector("#auditViewOutput"),
+  approvalIdInput: document.querySelector("#approvalIdInput"),
+  includeResolvedApprovalsInput: document.querySelector("#includeResolvedApprovalsInput"),
+  pendingApprovalsOutput: document.querySelector("#pendingApprovalsOutput"),
   dryRunInput: document.querySelector("#dryRunInput"),
   dryRunOutput: document.querySelector("#dryRunOutput"),
   auditActorInput: document.querySelector("#auditActorInput"),
@@ -205,6 +231,7 @@ function renderPersistentTelemetry(body) {
   els.persistentTelemetryOutput.textContent = pretty({
     enabled: Boolean(summary.enabled),
     path: summary.path,
+    filters: body.filters || {},
     persistent_errors: summary.persistent_errors ?? 0,
     routes: body.analytics?.routes || [],
     top_offenders: body.analytics?.top_offenders || [],
@@ -212,8 +239,22 @@ function renderPersistentTelemetry(body) {
   });
 }
 
+function persistentTelemetryQuery() {
+  const params = new URLSearchParams();
+  const limit = Number.parseInt(els.persistentLimitInput.value, 10);
+  const rangeSeconds = Number.parseInt(els.persistentRangeSelect.value, 10);
+
+  params.set("limit", String(Number.isInteger(limit) ? Math.max(1, Math.min(500, limit)) : 10));
+
+  if (Number.isInteger(rangeSeconds) && rangeSeconds > 0) {
+    params.set("since", String(Math.floor(Date.now() / 1000) - rangeSeconds));
+  }
+
+  return params.toString();
+}
+
 async function loadPersistentTelemetry() {
-  const response = await fetch("/admin/telemetry/persistent?limit=10", {
+  const response = await fetch(`/admin/telemetry/persistent?${persistentTelemetryQuery()}`, {
     headers: requestHeaders(true),
   });
   renderPersistentTelemetry(await readJson(response));
@@ -221,6 +262,128 @@ async function loadPersistentTelemetry() {
 
 async function runRecommendations() {
   await loadAdminJson("/ai/recommendations", { method: "POST" }, els.recommendationsOutput);
+}
+
+async function draftRecommendationPolicy() {
+  const response = await fetch("/admin/rules/recommendation-draft", {
+    method: "POST",
+    headers: requestHeaders(true),
+  });
+  const body = await readJson(response);
+  els.recommendationsOutput.textContent = pretty({
+    generated_at: body.generated_at,
+    changes: body.changes || [],
+    recommendations: body.recommendations || {},
+  });
+
+  if (body.rules) {
+    els.dryRunInput.value = pretty(body.rules);
+  }
+
+  if (body.dry_run) {
+    els.dryRunOutput.textContent = pretty(body.dry_run);
+  }
+}
+
+async function loadAnomalies() {
+  await loadAdminJson("/admin/ai/anomalies", {}, els.anomaliesOutput);
+}
+
+async function loadAIResearchReport() {
+  const response = await fetch("/admin/ai/research-report", {
+    headers: requestHeaders(true),
+  });
+  const body = await readJson(response);
+
+  if (!response.ok) {
+    els.aiResearchReportOutput.textContent = pretty(body);
+    return;
+  }
+
+  els.aiResearchReportOutput.textContent = pretty({
+    path: body.path,
+    bytes: body.bytes,
+    modified_at: body.modified_at,
+    etag: body.etag,
+    last_modified: body.last_modified,
+    line_count: body.line_count,
+    content_type: body.content_type,
+    download_url: body.download_url,
+    markdown: body.content,
+  });
+}
+
+function downloadFilename(response) {
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="([^"]+)"/);
+  return match ? match[1] : "AI_RESEARCH_REPORT.md";
+}
+
+async function downloadAIResearchReport() {
+  const response = await fetch(
+    "/admin/ai/research-report?format=markdown&download=true",
+    {
+      headers: requestHeaders(true),
+    },
+  );
+
+  if (!response.ok) {
+    const body = await readJson(response);
+    els.aiResearchReportOutput.textContent = pretty(body);
+    return;
+  }
+
+  const markdown = await response.text();
+  const filename = downloadFilename(response);
+  const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+
+  els.aiResearchReportOutput.textContent = pretty({
+    downloaded: true,
+    filename,
+    bytes: markdown.length,
+  });
+}
+
+async function runPolicyCopilot() {
+  const prompt = els.policyCopilotPromptInput.value.trim()
+    || "Explain current limiter pressure and safest policy next steps.";
+  const payload = { prompt };
+
+  if (els.policyCopilotIncludeDraftInput.checked) {
+    try {
+      payload.proposed_rules = JSON.parse(els.dryRunInput.value);
+    } catch (error) {
+      els.policyCopilotOutput.textContent = pretty({ error: error.message });
+      return;
+    }
+  }
+
+  const response = await fetch("/admin/ai/policy-copilot", {
+    method: "POST",
+    headers: {
+      ...requestHeaders(true),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const body = await readJson(response);
+  els.policyCopilotOutput.textContent = pretty(body);
+
+  if (body.proposed_rules) {
+    els.dryRunInput.value = pretty(body.proposed_rules);
+  }
+
+  if (body.dry_run) {
+    els.dryRunOutput.textContent = pretty(body.dry_run);
+  }
 }
 
 async function loadRules() {
@@ -240,6 +403,137 @@ async function loadHistory() {
 
   if (!els.rollbackVersionInput.value && body.current_version > 1) {
     els.rollbackVersionInput.value = String(body.current_version - 1);
+  }
+}
+
+function auditViewQuery() {
+  const params = new URLSearchParams();
+  const route = els.auditRouteFilterInput.value.trim();
+  const actor = els.auditActorFilterInput.value.trim();
+  const action = els.auditActionFilterSelect.value;
+  const sensitivity = els.auditSensitivityFilterSelect.value;
+  const rangeSeconds = Number.parseInt(els.auditRangeFilterSelect.value, 10);
+  const limit = Number.parseInt(els.auditLimitFilterInput.value, 10);
+
+  if (route) {
+    params.set("route", route);
+  }
+
+  if (actor) {
+    params.set("actor", actor);
+  }
+
+  if (action) {
+    params.set("action", action);
+  }
+
+  if (sensitivity) {
+    params.set("sensitivity", sensitivity);
+  }
+
+  if (Number.isInteger(rangeSeconds) && rangeSeconds > 0) {
+    params.set("since", String(Math.floor(Date.now() / 1000) - rangeSeconds));
+  }
+
+  params.set("limit", String(Number.isInteger(limit) ? Math.max(1, Math.min(500, limit)) : 25));
+  return params.toString();
+}
+
+function renderAuditView(body) {
+  const entries = body.entries || [];
+  els.auditViewOutput.textContent = pretty({
+    filters: body.filters || {},
+    count: body.count ?? entries.length,
+    entries: entries.map((entry) => ({
+      version: entry.version,
+      created_at: entry.created_at,
+      action: entry.action,
+      actor: entry.audit?.actor,
+      source: entry.audit?.source,
+      reason: entry.audit?.reason,
+      request_id: entry.audit?.request_id,
+      changed_routes: entry.changed_routes || [],
+      rolled_back_from: entry.rolled_back_from,
+    })),
+  });
+}
+
+async function loadAuditView() {
+  const response = await fetch(`/admin/rules/audit?${auditViewQuery()}`, {
+    headers: requestHeaders(true),
+  });
+  renderAuditView(await readJson(response));
+}
+
+function renderPendingApprovals(body) {
+  const requests = body.requests || [];
+  const pendingRequests = requests.filter((item) => item.status === "pending");
+
+  if (!els.approvalIdInput.value.trim() && pendingRequests.length > 0) {
+    els.approvalIdInput.value = pendingRequests[0].id;
+  }
+
+  els.pendingApprovalsOutput.textContent = pretty({
+    pending_count: pendingRequests.length,
+    approvals: requests.map((item) => ({
+      id: item.id,
+      status: item.status,
+      base_version: item.base_version,
+      applied_version: item.applied_version,
+      sensitive_routes: item.sensitive_routes || [],
+      proposed_by: item.audit?.actor,
+      source: item.audit?.source,
+      reason: item.audit?.reason,
+      approved_by: item.approval_audit?.actor,
+      rejected_by: item.rejection_audit?.actor,
+    })),
+    raw_requests: requests,
+  });
+}
+
+async function loadPendingApprovals() {
+  const params = new URLSearchParams();
+  if (els.includeResolvedApprovalsInput.checked) {
+    params.set("include_resolved", "true");
+  }
+
+  const query = params.toString();
+  const response = await fetch(`/admin/rules/pending${query ? `?${query}` : ""}`, {
+    headers: requestHeaders(true),
+  });
+  renderPendingApprovals(await readJson(response));
+}
+
+function selectedApprovalId() {
+  const approvalId = els.approvalIdInput.value.trim();
+  if (!approvalId) {
+    els.pendingApprovalsOutput.textContent = pretty({ error: "Approval ID is required." });
+    return null;
+  }
+
+  return approvalId;
+}
+
+async function decidePendingApproval(action) {
+  const approvalId = selectedApprovalId();
+  if (!approvalId) {
+    return;
+  }
+
+  const response = await fetch(`/admin/rules/pending/${approvalId}/${action}`, {
+    method: "POST",
+    headers: requestHeaders(true, true),
+  });
+  const body = await readJson(response);
+  els.pendingApprovalsOutput.textContent = pretty(body);
+
+  if (response.ok) {
+    await Promise.allSettled([
+      loadPendingApprovals(),
+      loadRules(),
+      loadHistory(),
+      loadAuditView(),
+    ]);
   }
 }
 
@@ -291,8 +585,12 @@ async function applyRulesUpdate() {
   els.ruleChangeOutput.textContent = pretty(body);
 
   if (response.ok) {
-    els.rulesOutput.textContent = pretty(body);
-    await loadHistory();
+    if (body.pending_approval) {
+      await loadPendingApprovals();
+    } else {
+      els.rulesOutput.textContent = pretty(body);
+      await Promise.allSettled([loadHistory(), loadAuditView()]);
+    }
   }
 }
 
@@ -306,7 +604,7 @@ async function reloadRules() {
 
   if (response.ok) {
     els.rulesOutput.textContent = pretty(body);
-    await loadHistory();
+    await Promise.allSettled([loadHistory(), loadAuditView()]);
   }
 }
 
@@ -326,7 +624,7 @@ async function rollbackRules() {
 
   if (response.ok) {
     els.rulesOutput.textContent = pretty(body);
-    await loadHistory();
+    await Promise.allSettled([loadHistory(), loadAuditView()]);
   }
 }
 
@@ -337,6 +635,10 @@ async function refreshAll() {
     loadPersistentTelemetry(),
     loadRules(),
     loadHistory(),
+    loadAnomalies(),
+    loadAIResearchReport(),
+    loadAuditView(),
+    loadPendingApprovals(),
   ]);
 }
 
@@ -383,12 +685,52 @@ els.recommendationsBtn.addEventListener("click", () => {
   runRecommendations();
 });
 
+els.recommendationDraftBtn.addEventListener("click", () => {
+  draftRecommendationPolicy();
+});
+
+els.anomaliesBtn.addEventListener("click", () => {
+  loadAnomalies();
+});
+
+els.aiResearchReportBtn.addEventListener("click", () => {
+  loadAIResearchReport();
+});
+
+els.aiResearchReportDownloadBtn.addEventListener("click", () => {
+  downloadAIResearchReport();
+});
+
+els.policyCopilotBtn.addEventListener("click", () => {
+  runPolicyCopilot();
+});
+
 els.rulesBtn.addEventListener("click", () => {
   loadRules();
 });
 
 els.historyBtn.addEventListener("click", () => {
   loadHistory();
+});
+
+els.auditViewBtn.addEventListener("click", () => {
+  loadAuditView();
+});
+
+els.pendingApprovalsBtn.addEventListener("click", () => {
+  loadPendingApprovals();
+});
+
+els.includeResolvedApprovalsInput.addEventListener("change", () => {
+  loadPendingApprovals();
+});
+
+els.approvePendingBtn.addEventListener("click", () => {
+  decidePendingApproval("approve");
+});
+
+els.rejectPendingBtn.addEventListener("click", () => {
+  decidePendingApproval("reject");
 });
 
 els.dryRunBtn.addEventListener("click", () => {

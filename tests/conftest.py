@@ -26,7 +26,12 @@ async def client(redis_client):
     metrics_registry.reset()
     telemetry_hub.reset()
     telemetry_hub.set_store(None)
+    settings.admin_api_key = "dev-admin-key"
+    settings.admin_api_keys = ""
     settings.hash_identifiers = False
+    settings.rule_store_backend = "json"
+    settings.rule_store_db_path = "data/rules.sqlite3"
+    settings.trusted_proxy_ips = ""
     settings.expose_demo_dashboard = True
     settings.enable_tracing = False
     settings.trace_console_exporter = True
@@ -35,12 +40,24 @@ async def client(redis_client):
     settings.trace_otlp_headers = None
     settings.trace_otlp_timeout_s = 10.0
     settings.persist_telemetry = False
+    settings.ai_copilot_enabled = False
+    settings.ai_copilot_provider = "fake"
+    settings.ai_copilot_endpoint = None
+    settings.ai_copilot_api_key = None
+    settings.ai_copilot_model = "policy-copilot"
+    settings.ai_copilot_timeout_s = 10.0
+    settings.ai_research_report_path = "docs/AI_RESEARCH_REPORT.md"
     
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
 
+    settings.admin_api_key = "dev-admin-key"
+    settings.admin_api_keys = ""
     settings.hash_identifiers = False
+    settings.rule_store_backend = "json"
+    settings.rule_store_db_path = "data/rules.sqlite3"
+    settings.trusted_proxy_ips = ""
     settings.expose_demo_dashboard = True
     settings.enable_tracing = False
     settings.trace_console_exporter = True
@@ -49,4 +66,11 @@ async def client(redis_client):
     settings.trace_otlp_headers = None
     settings.trace_otlp_timeout_s = 10.0
     settings.persist_telemetry = False
+    settings.ai_copilot_enabled = False
+    settings.ai_copilot_provider = "fake"
+    settings.ai_copilot_endpoint = None
+    settings.ai_copilot_api_key = None
+    settings.ai_copilot_model = "policy-copilot"
+    settings.ai_copilot_timeout_s = 10.0
+    settings.ai_research_report_path = "docs/AI_RESEARCH_REPORT.md"
     telemetry_hub.set_store(None)

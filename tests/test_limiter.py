@@ -74,8 +74,25 @@ def test_rule_fail_mode_must_be_known():
 
 
 def test_rule_algorithm_must_be_known():
+    rule = RateLimitRule(rate=1, capacity=1, algorithm="sliding_window")
+    assert rule.algorithm == "sliding_window"
+
     with pytest.raises(ValidationError):
         RateLimitRule(rate=1, capacity=1, algorithm="leaky_bucket")
+
+
+def test_rule_sensitivity_must_be_known_when_set():
+    rule = RateLimitRule(
+        rate=1,
+        capacity=1,
+        owner="api-platform",
+        sensitivity="sensitive",
+    )
+    assert rule.owner == "api-platform"
+    assert rule.sensitivity == "sensitive"
+
+    with pytest.raises(ValidationError):
+        RateLimitRule(rate=1, capacity=1, sensitivity="secret")
 
 
 @pytest.mark.asyncio
@@ -97,6 +114,33 @@ async def test_fixed_window_algorithm(redis_client):
         rate=1.0,
         capacity=3,
         algorithm="fixed_window",
+    )
+
+    assert result.allowed is False
+    assert result.remaining == 0
+    assert result.retry_after_s >= 1
+
+
+@pytest.mark.asyncio
+async def test_sliding_window_algorithm(redis_client):
+    limiter = RedisRateLimiter(redis_client)
+    key = "sliding_window_bucket"
+
+    for expected_remaining in [2, 1, 0]:
+        result = await limiter.is_allowed(
+            key,
+            rate=1.0,
+            capacity=3,
+            algorithm="sliding_window",
+        )
+        assert result.allowed is True
+        assert result.remaining == expected_remaining
+
+    result = await limiter.is_allowed(
+        key,
+        rate=1.0,
+        capacity=3,
+        algorithm="sliding_window",
     )
 
     assert result.allowed is False
