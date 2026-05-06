@@ -318,6 +318,24 @@ def research_report_freshness_headers(report_path: FilePath) -> dict[str, str]:
     }
 
 
+def configured_research_report_path() -> tuple[str, FilePath]:
+    configured_path = settings.ai_research_report_path
+    report_path = FilePath(configured_path)
+    if not report_path.is_absolute():
+        report_path = FilePath.cwd() / report_path
+    return configured_path, report_path
+
+
+def require_research_report_path() -> tuple[str, FilePath]:
+    configured_path, report_path = configured_research_report_path()
+    if not report_path.exists() or not report_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"AI research report artifact not found: {configured_path}",
+        )
+    return configured_path, report_path
+
+
 def research_report_not_modified(request: Request, report_path: FilePath, etag: str) -> bool:
     if_none_match = request.headers.get("if-none-match")
     if if_none_match:
@@ -337,6 +355,47 @@ def research_report_not_modified(request: Request, report_path: FilePath, etag: 
         return False
 
     return int(report_path.stat().st_mtime) <= int(modified_since.timestamp())
+
+
+@router.head(
+    "/ai/research-report",
+    summary="Inspect AI research report artifact freshness metadata",
+    responses={
+        200: {"description": "Research report artifact freshness metadata."},
+        304: {"description": "Research report artifact has not changed."},
+        404: {"description": "Configured AI research report artifact was not found."},
+    },
+)
+async def head_ai_research_report(
+    request: Request,
+    format: Literal["json", "markdown"] = Query(
+        "json",
+        description="Mirror the GET response mode for content metadata.",
+        openapi_examples={
+            "json_view": {"summary": "JSON view", "value": "json"},
+            "markdown_view": {"summary": "Markdown view", "value": "markdown"},
+        },
+    ),
+    download: bool = Query(
+        False,
+        description="When format=markdown, include attachment Content-Disposition metadata.",
+        openapi_examples={"download_file": {"summary": "Download file", "value": True}},
+    ),
+):
+    _, report_path = require_research_report_path()
+    freshness_headers = research_report_freshness_headers(report_path)
+    if format == "markdown":
+        disposition = "attachment" if download else "inline"
+        filename = report_path.name or "AI_RESEARCH_REPORT.md"
+        freshness_headers["Content-Disposition"] = f'{disposition}; filename="{filename}"'
+
+    response_status = (
+        status.HTTP_304_NOT_MODIFIED
+        if research_report_not_modified(request, report_path, freshness_headers["ETag"])
+        else status.HTTP_200_OK
+    )
+    media_type = "text/markdown; charset=utf-8" if format == "markdown" else "application/json"
+    return Response(status_code=response_status, headers=freshness_headers, media_type=media_type)
 
 
 @router.get(
@@ -374,16 +433,7 @@ async def get_ai_research_report(
         openapi_examples={"download_file": {"summary": "Download file", "value": True}},
     ),
 ):
-    configured_path = settings.ai_research_report_path
-    report_path = FilePath(configured_path)
-    if not report_path.is_absolute():
-        report_path = FilePath.cwd() / report_path
-
-    if not report_path.exists() or not report_path.is_file():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"AI research report artifact not found: {configured_path}",
-        )
+    configured_path, report_path = require_research_report_path()
 
     stat = report_path.stat()
     freshness_headers = research_report_freshness_headers(report_path)

@@ -75,6 +75,7 @@
 - Add explicit 30-day CI artifact retention for coverage, SBOM, and AI dry-run uploads.
 - Add AI research report freshness headers and dashboard metadata for artifact version review.
 - Add conditional request support for AI research report JSON and Markdown responses.
+- Add `HEAD` support for AI research report artifact metadata checks.
 
 ## Remaining
 
@@ -94,6 +95,7 @@
 
 - The original portfolio upgrade backlog is complete through Phase 35. The new queue is the AI research upgrade described in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md).
 - The AI research queue is complete through AI-P5. Next work should be selected from new user priorities or follow-up hardening identified by the evaluation report.
+- The twenty-seventh post-AI-P5 hardening pass adds `HEAD /admin/ai/research-report` so review clients can inspect artifact freshness metadata without downloading a response body.
 - The twenty-sixth post-AI-P5 hardening pass makes AI research report JSON and Markdown responses honor `If-None-Match` and `If-Modified-Since` with `304 Not Modified`.
 - The twenty-fifth post-AI-P5 hardening pass adds `ETag`, `Last-Modified`, and `Cache-Control` metadata to AI research report JSON and Markdown responses.
 - The twenty-third and twenty-fourth post-AI-P5 hardening passes add optional dashboard screenshot refresh automation for the AI Research Report panel and explicit 30-day retention for CI review artifacts.

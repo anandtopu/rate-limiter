@@ -124,6 +124,67 @@ async def test_admin_ai_research_report_endpoint_honors_if_none_match(client):
 
 
 @pytest.mark.asyncio
+async def test_admin_ai_research_report_head_returns_freshness_metadata(client):
+    report_path = (
+        Path("tmp-test-data")
+        / "ai-research-report-endpoint"
+        / str(uuid4())
+        / "AI_RESEARCH_REPORT.md"
+    )
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text("# AI Rate Limiter Research Report\n", encoding="utf-8")
+    settings.ai_research_report_path = str(report_path)
+
+    response = await client.head(
+        "/admin/ai/research-report",
+        headers={"X-Admin-Key": "dev-admin-key"},
+        params={"format": "markdown", "download": "true"},
+    )
+
+    assert response.status_code == 200
+    assert response.content == b""
+    assert response.headers["etag"].startswith('W/"')
+    assert response.headers["last-modified"]
+    assert response.headers["cache-control"] == "no-cache"
+    assert "text/markdown" in response.headers["content-type"]
+    assert response.headers["content-disposition"] == (
+        'attachment; filename="AI_RESEARCH_REPORT.md"'
+    )
+
+
+@pytest.mark.asyncio
+async def test_admin_ai_research_report_head_honors_if_none_match(client):
+    report_path = (
+        Path("tmp-test-data")
+        / "ai-research-report-endpoint"
+        / str(uuid4())
+        / "AI_RESEARCH_REPORT.md"
+    )
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text("# AI Rate Limiter Research Report\n", encoding="utf-8")
+    settings.ai_research_report_path = str(report_path)
+
+    first_response = await client.head(
+        "/admin/ai/research-report",
+        headers={"X-Admin-Key": "dev-admin-key"},
+    )
+
+    response = await client.head(
+        "/admin/ai/research-report",
+        headers={
+            "X-Admin-Key": "dev-admin-key",
+            "If-None-Match": first_response.headers["etag"],
+        },
+    )
+
+    assert response.status_code == 304
+    assert response.content == b""
+    assert response.headers["etag"] == first_response.headers["etag"]
+    assert response.headers["last-modified"] == first_response.headers["last-modified"]
+    assert response.headers["cache-control"] == "no-cache"
+
+
+@pytest.mark.asyncio
 async def test_admin_ai_research_report_endpoint_reports_missing_artifact(client):
     settings.ai_research_report_path = str(
         Path("tmp-test-data")

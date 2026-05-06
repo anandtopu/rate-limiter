@@ -146,6 +146,7 @@ Advisor output should use a common schema:
 - Configure explicit retention for uploaded CI review artifacts.
 - Add standard freshness headers to AI research report JSON and Markdown responses.
 - Honor conditional request headers for unchanged AI research report artifacts.
+- Add metadata-only `HEAD` checks for AI research report artifacts.
 
 ## Rollout Strategy
 
@@ -154,4 +155,4 @@ Advisor output should use a common schema:
 3. Add replay dry-run and dashboard summaries.
 4. Add anomaly APIs and scenario tests. (Done in AI-P3.)
 5. Add optional LLM copilot with fake adapter tests. (Done in AI-P4; OpenAI-compatible HTTP adapter added in AI-H2.)
-6. Publish evaluation results and limitations. (Done in AI-P5; live HTTP comparison added in AI-H3; persisted telemetry replay added in AI-H4; live Redis outage coverage added in AI-H5; report artifact added in AI-H6; CI dry-run artifact path added in AI-H7; admin report endpoint and dashboard panel added in AI-H8; CI artifact upload added in AI-H9; raw report download mode added in AI-H10; CI artifact manifest added in AI-H11; dashboard report download added in AI-H12; reviewer ergonomics, screenshot refresh support, CI artifact retention, report freshness metadata, and conditional request handling added through AI-H26.)
+6. Publish evaluation results and limitations. (Done in AI-P5; live HTTP comparison added in AI-H3; persisted telemetry replay added in AI-H4; live Redis outage coverage added in AI-H5; report artifact added in AI-H6; CI dry-run artifact path added in AI-H7; admin report endpoint and dashboard panel added in AI-H8; CI artifact upload added in AI-H9; raw report download mode added in AI-H10; CI artifact manifest added in AI-H11; dashboard report download added in AI-H12; reviewer ergonomics, screenshot refresh support, CI artifact retention, report freshness metadata, conditional request handling, and metadata-only `HEAD` checks added through AI-H27.)
