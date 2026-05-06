@@ -298,6 +298,8 @@ This keeps runtime behavior deterministic and gives every AI proposal the same s
 - `app/ai/copilot.py`: optional LLM adapter and policy-draft workflow, disabled by default, with fake and OpenAI-compatible HTTP providers.
 - `scripts/ai_eval.py`: repeatable research evaluation scenarios and reports.
 - `scripts/ai_live_eval.py`: live HTTP evaluation that compares Redis-backed response captures with the synthetic baseline.
+- `scripts/ai_research_report.py`: compact Markdown report generator for synthetic, live, outage, and persisted evaluation summaries.
+- `scripts/ai_ci_dry_run.py`: CI-friendly wrapper that produces synthetic, seeded SQLite persisted, and research-report artifacts without live services.
 
 ### Implementation Sequence
 
@@ -310,6 +312,12 @@ This keeps runtime behavior deterministic and gives every AI proposal the same s
 7. Add evaluation scenarios and document research results.
 8. Harden the copilot provider boundary with a real HTTP adapter while preserving offline fake-provider tests.
 9. Add a live HTTP evaluation harness for running-app comparison against the synthetic AI baseline.
+10. Add persisted telemetry replay windows for real demo-run evaluation reports.
+11. Add opt-in Redis outage mode to the live evaluator for end-to-end reliability-scenario coverage.
+12. Add a generated research report artifact that combines available AI evaluation summaries.
+13. Add a CI-friendly AI dry-run artifact path that does not require Docker, Redis, network access, or a running app.
+14. Expose the generated AI research report artifact through the admin API and demo dashboard.
+15. Run the CI-friendly AI dry-run in GitHub Actions and upload its generated artifact bundle.
 
 ### Safety Requirements
 

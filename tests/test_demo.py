@@ -23,6 +23,8 @@ async def test_demo_dashboard_returns_html(client):
     assert "recommendationDraftBtn" in response.text
     assert "Anomalies" in response.text
     assert "anomaliesBtn" in response.text
+    assert "AI Research Report" in response.text
+    assert "aiResearchReportBtn" in response.text
     assert "Policy Copilot" in response.text
     assert "policyCopilotBtn" in response.text
 
@@ -59,6 +61,8 @@ async def test_demo_static_assets_are_served(client):
     assert "/admin/rules/recommendation-draft" in js_response.text
     assert "loadAnomalies" in js_response.text
     assert "/admin/ai/anomalies" in js_response.text
+    assert "loadAIResearchReport" in js_response.text
+    assert "/admin/ai/research-report" in js_response.text
     assert "runPolicyCopilot" in js_response.text
     assert "/admin/ai/policy-copilot" in js_response.text
     assert "X-Audit-Reason" in js_response.text

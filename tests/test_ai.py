@@ -1,7 +1,11 @@
+from pathlib import Path
+from uuid import uuid4
+
 import pytest
 import redis.asyncio as redis
 
 import app.api.depends as depends
+from app.config import settings
 from app.core.limiter import RedisRateLimiter
 
 
@@ -47,6 +51,55 @@ async def test_admin_ai_anomalies_endpoint_reports_findings(client):
     assert body["events_analyzed"] >= 6
     finding_types = {item["type"] for item in body["findings"]}
     assert "concentrated_offender" in finding_types
+
+
+@pytest.mark.asyncio
+async def test_admin_ai_research_report_endpoint_returns_markdown_artifact(client):
+    report_path = (
+        Path("tmp-test-data")
+        / "ai-research-report-endpoint"
+        / str(uuid4())
+        / "AI_RESEARCH_REPORT.md"
+    )
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(
+        "# AI Rate Limiter Research Report\n\n## Summary\n\n- Overall status: `stable`\n",
+        encoding="utf-8",
+    )
+    settings.ai_research_report_path = str(report_path)
+
+    response = await client.get(
+        "/admin/ai/research-report",
+        headers={"X-Admin-Key": "dev-admin-key"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["schema_version"] == 1
+    assert body["path"] == str(report_path)
+    assert body["exists"] is True
+    assert body["content_type"] == "text/markdown"
+    assert body["line_count"] == 5
+    assert "AI Rate Limiter Research Report" in body["content"]
+    assert body["bytes"] == report_path.stat().st_size
+
+
+@pytest.mark.asyncio
+async def test_admin_ai_research_report_endpoint_reports_missing_artifact(client):
+    settings.ai_research_report_path = str(
+        Path("tmp-test-data")
+        / "ai-research-report-endpoint"
+        / str(uuid4())
+        / "missing-report.md"
+    )
+
+    response = await client.get(
+        "/admin/ai/research-report",
+        headers={"X-Admin-Key": "dev-admin-key"},
+    )
+
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"]
 
 
 @pytest.mark.asyncio

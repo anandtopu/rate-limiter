@@ -46,6 +46,7 @@ async def client(redis_client):
     settings.ai_copilot_api_key = None
     settings.ai_copilot_model = "policy-copilot"
     settings.ai_copilot_timeout_s = 10.0
+    settings.ai_research_report_path = "docs/AI_RESEARCH_REPORT.md"
     
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
@@ -71,4 +72,5 @@ async def client(redis_client):
     settings.ai_copilot_api_key = None
     settings.ai_copilot_model = "policy-copilot"
     settings.ai_copilot_timeout_s = 10.0
+    settings.ai_research_report_path = "docs/AI_RESEARCH_REPORT.md"
     telemetry_hub.set_store(None)

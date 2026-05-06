@@ -139,6 +139,10 @@ async def test_openapi_includes_admin_examples(client):
     ]["examples"]
     assert "explain_only" in copilot_examples
     assert "validate_draft" in copilot_examples
+    report_examples = paths["/admin/ai/research-report"]["get"]["responses"]["200"][
+        "content"
+    ]["application/json"]["examples"]
+    assert report_examples["generated_report"]["value"]["content_type"] == "text/markdown"
 
     telemetry_params = {
         parameter["name"]: parameter

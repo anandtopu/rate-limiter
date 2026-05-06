@@ -51,3 +51,13 @@ jobs:
           name: coverage-xml
           path: coverage.xml
           if-no-files-found: error
+
+      - name: Run AI evaluation dry run
+        run: python scripts/ai_ci_dry_run.py --output-dir tmp-test-data/ai-ci-dry-run
+
+      - name: Upload AI dry-run artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-ci-dry-run
+          path: tmp-test-data/ai-ci-dry-run
+          if-no-files-found: error

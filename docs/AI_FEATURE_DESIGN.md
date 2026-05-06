@@ -132,6 +132,12 @@ Advisor output should use a common schema:
 - Add provider adapter tests with mocked HTTP responses so local tests never require network or credentials.
 - Extend load-test/eval scripts for repeatable research scenarios.
 - Add a live HTTP evaluation harness that converts response captures into `RateLimitEvent` records and compares them with synthetic labels.
+- Add persisted telemetry window replay for real demo-run research reports.
+- Add opt-in Redis outage coverage for the live HTTP evaluation harness.
+- Add a compact generated research report artifact that summarizes synthetic, live, outage, and persisted evaluation results.
+- Add a CI-friendly dry-run wrapper that produces synthetic, seeded persisted, and research-report artifacts without Docker, Redis, network calls, or a live app.
+- Expose the latest generated Markdown report through an admin-only endpoint and dashboard panel.
+- Run the CI-friendly dry-run wrapper in GitHub Actions and upload its generated artifact bundle.
 
 ## Rollout Strategy
 
@@ -140,4 +146,4 @@ Advisor output should use a common schema:
 3. Add replay dry-run and dashboard summaries.
 4. Add anomaly APIs and scenario tests. (Done in AI-P3.)
 5. Add optional LLM copilot with fake adapter tests. (Done in AI-P4; OpenAI-compatible HTTP adapter added in AI-H2.)
-6. Publish evaluation results and limitations. (Done in AI-P5; live HTTP comparison added in AI-H3.)
+6. Publish evaluation results and limitations. (Done in AI-P5; live HTTP comparison added in AI-H3; persisted telemetry replay added in AI-H4; live Redis outage coverage added in AI-H5; report artifact added in AI-H6; CI dry-run artifact path added in AI-H7; admin report endpoint and dashboard panel added in AI-H8; CI artifact upload added in AI-H9.)

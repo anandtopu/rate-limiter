@@ -17,6 +17,7 @@ const els = {
   recommendationsBtn: document.querySelector("#recommendationsBtn"),
   recommendationDraftBtn: document.querySelector("#recommendationDraftBtn"),
   anomaliesBtn: document.querySelector("#anomaliesBtn"),
+  aiResearchReportBtn: document.querySelector("#aiResearchReportBtn"),
   policyCopilotBtn: document.querySelector("#policyCopilotBtn"),
   rulesBtn: document.querySelector("#rulesBtn"),
   historyBtn: document.querySelector("#historyBtn"),
@@ -47,6 +48,7 @@ const els = {
   persistentTelemetryOutput: document.querySelector("#persistentTelemetryOutput"),
   recommendationsOutput: document.querySelector("#recommendationsOutput"),
   anomaliesOutput: document.querySelector("#anomaliesOutput"),
+  aiResearchReportOutput: document.querySelector("#aiResearchReportOutput"),
   policyCopilotPromptInput: document.querySelector("#policyCopilotPromptInput"),
   policyCopilotIncludeDraftInput: document.querySelector("#policyCopilotIncludeDraftInput"),
   policyCopilotOutput: document.querySelector("#policyCopilotOutput"),
@@ -284,6 +286,27 @@ async function draftRecommendationPolicy() {
 
 async function loadAnomalies() {
   await loadAdminJson("/admin/ai/anomalies", {}, els.anomaliesOutput);
+}
+
+async function loadAIResearchReport() {
+  const response = await fetch("/admin/ai/research-report", {
+    headers: requestHeaders(true),
+  });
+  const body = await readJson(response);
+
+  if (!response.ok) {
+    els.aiResearchReportOutput.textContent = pretty(body);
+    return;
+  }
+
+  els.aiResearchReportOutput.textContent = pretty({
+    path: body.path,
+    bytes: body.bytes,
+    modified_at: body.modified_at,
+    line_count: body.line_count,
+    content_type: body.content_type,
+    markdown: body.content,
+  });
 }
 
 async function runPolicyCopilot() {
@@ -570,6 +593,7 @@ async function refreshAll() {
     loadRules(),
     loadHistory(),
     loadAnomalies(),
+    loadAIResearchReport(),
     loadAuditView(),
     loadPendingApprovals(),
   ]);
@@ -624,6 +648,10 @@ els.recommendationDraftBtn.addEventListener("click", () => {
 
 els.anomaliesBtn.addEventListener("click", () => {
   loadAnomalies();
+});
+
+els.aiResearchReportBtn.addEventListener("click", () => {
+  loadAIResearchReport();
 });
 
 els.policyCopilotBtn.addEventListener("click", () => {

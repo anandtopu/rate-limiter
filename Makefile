@@ -9,8 +9,9 @@ BANDIT ?= .venv/Scripts/bandit.exe
 CYCLONEDX ?= .venv/Scripts/cyclonedx-py.exe
 SBOM_PATH ?= sbom.json
 BASE_URL ?= http://localhost:8001
+TELEMETRY_DB ?= data/telemetry.sqlite3
 
-.PHONY: install dev test coverage lint security sbom format compose-up compose-down load-test ai-eval ai-live-eval redis-outage-demo
+.PHONY: install dev test coverage lint security sbom format compose-up compose-down load-test ai-eval ai-eval-persisted ai-live-eval ai-live-eval-outage ai-research-report ai-ci-dry-run redis-outage-demo
 
 install:
 	$(UV) pip install --python $(PYTHON) -r requirements-dev.txt
@@ -49,8 +50,20 @@ load-test:
 ai-eval:
 	$(PYTHON) scripts/ai_eval.py
 
+ai-eval-persisted:
+	$(PYTHON) scripts/ai_eval.py --telemetry-db $(TELEMETRY_DB)
+
 ai-live-eval:
 	$(PYTHON) scripts/ai_live_eval.py --base-url $(BASE_URL)
+
+ai-live-eval-outage:
+	$(PYTHON) scripts/ai_live_eval.py --base-url $(BASE_URL) --include-redis-outage
+
+ai-research-report:
+	$(PYTHON) scripts/ai_research_report.py --output docs/AI_RESEARCH_REPORT.md
+
+ai-ci-dry-run:
+	$(PYTHON) scripts/ai_ci_dry_run.py
 
 redis-outage-demo:
 	$(PYTHON) scripts/redis_outage_demo.py --base-url $(BASE_URL)

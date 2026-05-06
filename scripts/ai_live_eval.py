@@ -23,6 +23,7 @@ from scripts.ai_eval import (  # noqa: E402
     compare_labels,
     run_evaluation,
 )
+from scripts.redis_outage_demo import compose_args, run_command  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -43,6 +44,7 @@ class CapturedResponse:
     latency_ms: float
     headers: dict[str, str]
     error: str | None = None
+    redis_fail_open: bool = False
 
 
 def _prefixed_key(prefix: str, value: str) -> str:
@@ -118,6 +120,22 @@ def build_live_scenarios(*, run_id: str | None = None) -> list[LiveScenario]:
     ]
 
 
+def build_redis_outage_scenario(*, run_id: str | None = None) -> LiveScenario:
+    prefix = run_id or f"live_{int(time.time())}"
+    return LiveScenario(
+        name="redis-outage-exposure",
+        description="Sensitive live route is allowed during a managed Redis outage.",
+        requests=[
+            (
+                f"/api/accounts/live-outage-{index}/data",
+                _prefixed_key(prefix, "redis_outage_enterprise"),
+            )
+            for index in range(2)
+        ],
+        concurrency=1,
+    )
+
+
 def route_template(endpoint: str) -> str:
     if endpoint.startswith("/api/accounts/") and endpoint.endswith("/data"):
         return "/api/accounts/{account_id}/data"
@@ -175,6 +193,7 @@ def send_request(
     endpoint: str,
     api_key: str,
     timeout_s: float,
+    redis_fail_open: bool = False,
 ) -> CapturedResponse:
     request = Request(
         f"{base_url.rstrip('/')}{endpoint}",
@@ -209,6 +228,7 @@ def send_request(
         latency_ms=round((time.perf_counter() - started) * 1000, 2),
         headers=headers,
         error=error,
+        redis_fail_open=redis_fail_open,
     )
 
 
@@ -217,6 +237,7 @@ def run_live_scenario(
     scenario: LiveScenario,
     *,
     timeout_s: float,
+    redis_fail_open: bool = False,
 ) -> list[CapturedResponse]:
     captures: list[CapturedResponse] = []
     with ThreadPoolExecutor(max_workers=scenario.concurrency) as pool:
@@ -228,6 +249,7 @@ def run_live_scenario(
                 endpoint=endpoint,
                 api_key=api_key,
                 timeout_s=timeout_s,
+                redis_fail_open=redis_fail_open,
             )
             for endpoint, api_key in scenario.requests
         ]
@@ -235,6 +257,47 @@ def run_live_scenario(
             captures.append(future.result())
 
     return sorted(captures, key=lambda item: item.timestamp)
+
+
+def run_redis_outage_scenario(
+    base_url: str,
+    scenario: LiveScenario,
+    *,
+    compose_command: str,
+    redis_service: str,
+    settle_seconds: float,
+    restore_seconds: float,
+    skip_stop: bool,
+    skip_restore: bool,
+    timeout_s: float,
+) -> dict[str, Any]:
+    commands = []
+    stopped_redis = False
+    if not skip_stop:
+        stop_result = run_command(compose_args(compose_command, "stop", redis_service))
+        commands.append(stop_result)
+        stopped_redis = stop_result["returncode"] == 0
+        time.sleep(settle_seconds)
+
+    captures = run_live_scenario(
+        base_url,
+        scenario,
+        timeout_s=timeout_s,
+        redis_fail_open=True,
+    )
+
+    if stopped_redis and not skip_restore:
+        start_result = run_command(compose_args(compose_command, "start", redis_service))
+        commands.append(start_result)
+        time.sleep(restore_seconds)
+
+    return {
+        "managed_outage": not skip_stop,
+        "redis_service": redis_service,
+        "commands": commands,
+        "captures": captures,
+        "restored": stopped_redis and not skip_restore,
+    }
 
 
 def captured_response_to_event(capture: CapturedResponse) -> RateLimitEvent | None:
@@ -255,7 +318,7 @@ def captured_response_to_event(capture: CapturedResponse) -> RateLimitEvent | No
         capacity=metadata["capacity"],
         rate=metadata["rate"],
         retry_after_s=int(retry_after) if retry_after is not None else None,
-        redis_fail_open=False,
+        redis_fail_open=capture.redis_fail_open,
         algorithm=metadata["algorithm"],
         fail_mode=metadata["fail_mode"],
         tier=metadata["tier"],
@@ -275,6 +338,7 @@ def capture_summary(captures: list[CapturedResponse]) -> dict[str, Any]:
         "limited": statuses.get("429", 0),
         "errors": statuses.get("error", 0)
         + sum(count for status, count in statuses.items() if status.startswith("5")),
+        "redis_fail_open": sum(1 for item in captures if item.redis_fail_open),
         "statuses": dict(sorted(statuses.items())),
     }
 
@@ -387,6 +451,13 @@ def run_live_evaluation(
     scenario_names: set[str] | None = None,
     timeout_s: float = 5.0,
     skip_readiness: bool = False,
+    include_redis_outage: bool = False,
+    compose_command: str = "docker compose",
+    redis_service: str = "redis",
+    settle_seconds: float = 2.0,
+    restore_seconds: float = 4.0,
+    skip_redis_stop: bool = False,
+    skip_redis_restore: bool = False,
 ) -> dict[str, Any]:
     generated_at = generated_at or int(time.time())
     readiness = (
@@ -401,18 +472,42 @@ def run_live_evaluation(
         for scenario in build_live_scenarios(run_id=run_id)
         if scenario_names is None or scenario.name in scenario_names
     ]
+    outage_scenario = build_redis_outage_scenario(run_id=run_id)
+    if include_redis_outage and (
+        scenario_names is None or outage_scenario.name in scenario_names
+    ):
+        live_scenarios.append(outage_scenario)
+
     scenario_results = []
+    outage_runs = []
     for scenario in live_scenarios:
-        captures = run_live_scenario(base_url, scenario, timeout_s=timeout_s)
-        scenario_results.append(
-            evaluate_live_captures(
+        if scenario.name == "redis-outage-exposure":
+            outage_run = run_redis_outage_scenario(
+                base_url,
                 scenario,
-                captures,
-                generated_at=generated_at,
-                synthetic_result=synthetic_results.get(scenario.name),
-                scenario_definition=scenario_definitions.get(scenario.name),
+                compose_command=compose_command,
+                redis_service=redis_service,
+                settle_seconds=settle_seconds,
+                restore_seconds=restore_seconds,
+                skip_stop=skip_redis_stop,
+                skip_restore=skip_redis_restore,
+                timeout_s=timeout_s,
             )
+            captures = outage_run["captures"]
+            outage_runs.append({k: v for k, v in outage_run.items() if k != "captures"})
+        else:
+            captures = run_live_scenario(base_url, scenario, timeout_s=timeout_s)
+
+        scenario_result = evaluate_live_captures(
+            scenario,
+            captures,
+            generated_at=generated_at,
+            synthetic_result=synthetic_results.get(scenario.name),
+            scenario_definition=scenario_definitions.get(scenario.name),
         )
+        if scenario.name == "redis-outage-exposure" and outage_runs:
+            scenario_result["outage"] = outage_runs[-1]
+        scenario_results.append(scenario_result)
 
     return {
         "schema_version": 1,
@@ -421,14 +516,15 @@ def run_live_evaluation(
         "readiness": readiness,
         "summary": summarize_live_evaluation(scenario_results),
         "scenarios": scenario_results,
+        "outage_runs": outage_runs,
         "limitations": [
             (
                 "Live captures use HTTP response headers and status codes to rebuild "
                 "evaluation events."
             ),
             (
-                "Redis outage exposure is excluded from the default live run because "
-                "it requires intentionally stopping Redis."
+                "Redis outage exposure only runs when --include-redis-outage is set "
+                "because it intentionally stops or assumes unavailable Redis."
             ),
             "Repeated runs should use a fresh run_id or wait for rate-limit windows to decay.",
         ],
@@ -451,6 +547,25 @@ def main() -> None:
     parser.add_argument("--timeout-s", type=float, default=5.0)
     parser.add_argument("--skip-readiness", action="store_true")
     parser.add_argument(
+        "--include-redis-outage",
+        action="store_true",
+        help="Include the managed Redis outage reliability scenario.",
+    )
+    parser.add_argument("--compose-command", default="docker compose")
+    parser.add_argument("--redis-service", default="redis")
+    parser.add_argument("--settle-seconds", type=float, default=2.0)
+    parser.add_argument("--restore-seconds", type=float, default=4.0)
+    parser.add_argument(
+        "--skip-redis-stop",
+        action="store_true",
+        help="Assume Redis is already unavailable and only run outage captures.",
+    )
+    parser.add_argument(
+        "--skip-redis-restore",
+        action="store_true",
+        help="Leave Redis stopped after a managed outage capture.",
+    )
+    parser.add_argument(
         "--strict",
         action="store_true",
         help="Exit non-zero when live labels diverge from the synthetic baseline.",
@@ -463,6 +578,13 @@ def main() -> None:
         scenario_names=set(args.scenarios) if args.scenarios else None,
         timeout_s=args.timeout_s,
         skip_readiness=args.skip_readiness,
+        include_redis_outage=args.include_redis_outage,
+        compose_command=args.compose_command,
+        redis_service=args.redis_service,
+        settle_seconds=args.settle_seconds,
+        restore_seconds=args.restore_seconds,
+        skip_redis_stop=args.skip_redis_stop,
+        skip_redis_restore=args.skip_redis_restore,
     )
     rendered = json.dumps(report, indent=2)
     if args.output:

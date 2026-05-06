@@ -28,7 +28,12 @@ This repository has been upgraded into a portfolio-ready "Rate Limiter Control P
 - **Anomaly Detection**: Deterministic findings flag route spikes, retry loops, concentrated offenders, sensitive-route probing, and Redis outage exposure with evidence and suggested next actions.
 - **Optional Policy Copilot**: A disabled-by-default control-plane endpoint can explain AI signals and validate/dry-run generated rule JSON through a provider adapter, with a deterministic fake provider for local tests and an opt-in OpenAI-compatible HTTP adapter.
 - **AI Evaluation Harness**: `scripts/ai_eval.py` runs repeatable labeled scenarios and reports recommendation/anomaly precision, false-positive notes, denied-legitimate estimates, abuse-reduction estimates, and policy-stability status.
+- **Persisted AI Replay**: The AI evaluation harness can replay SQLite telemetry windows from real demo runs for observed-label reports or scenario comparisons.
 - **Live AI Evaluation**: `scripts/ai_live_eval.py` drives a running app over HTTP and compares captured Redis-backed behavior with the synthetic AI evaluation baseline.
+- **AI Research Report Artifact**: `scripts/ai_research_report.py` generates a compact Markdown report from synthetic, live, outage, and persisted evaluation summaries.
+- **CI AI Dry Run**: `scripts/ai_ci_dry_run.py` generates synthetic and seeded SQLite evaluation artifacts without Docker, Redis, or a live app.
+- **CI AI Artifacts**: GitHub Actions uploads the AI dry-run report bundle as the `ai-ci-dry-run` artifact.
+- **AI Research Report API**: `GET /admin/ai/research-report` exposes the latest generated Markdown report to the dashboard and admin clients.
 - **Admin Rule API**: `X-Admin-Key` protects rule inspect, validate, update, approval, and reload endpoints.
 - **Operational Endpoints**: `/health`, `/ready`, and `/metrics` expose process health, Redis readiness, and Prometheus-style counters.
 - **Docker Health Checks**: Compose marks Redis and the web app healthy only after Redis responds and `/ready` succeeds.
@@ -170,7 +175,11 @@ make sbom
 make compose-up
 make load-test
 make ai-eval
+make ai-eval-persisted
 make ai-live-eval
+make ai-live-eval-outage
+make ai-research-report
+make ai-ci-dry-run
 make redis-outage-demo
 ```
 
@@ -185,7 +194,11 @@ Without `make`, the equivalent checks are:
 docker compose up --build
 .\.venv\Scripts\python.exe scripts\load_test.py --base-url http://localhost:8001
 .\.venv\Scripts\python.exe scripts\ai_eval.py
+.\.venv\Scripts\python.exe scripts\ai_eval.py --telemetry-db data/telemetry.sqlite3
 .\.venv\Scripts\python.exe scripts\ai_live_eval.py --base-url http://localhost:8001
+.\.venv\Scripts\python.exe scripts\ai_live_eval.py --base-url http://localhost:8001 --include-redis-outage
+.\.venv\Scripts\python.exe scripts\ai_research_report.py --output docs/AI_RESEARCH_REPORT.md
+.\.venv\Scripts\python.exe scripts\ai_ci_dry_run.py
 .\.venv\Scripts\python.exe scripts\redis_outage_demo.py --base-url http://localhost:8001
 ```
 
@@ -256,6 +269,7 @@ Behavior today:
 - `AI_COPILOT_API_KEY` optionally adds a bearer token for the provider request.
 - `AI_COPILOT_MODEL=policy-copilot` sets the model name sent to the provider.
 - `AI_COPILOT_TIMEOUT_S=10.0` limits provider request duration.
+- `AI_RESEARCH_REPORT_PATH=docs/AI_RESEARCH_REPORT.md` points the admin report endpoint at the latest generated Markdown artifact.
 
 ## Operations
 
@@ -309,6 +323,7 @@ Available endpoints:
 - `GET /admin/rules`
 - `GET /admin/keys`
 - `GET /admin/ai/anomalies`
+- `GET /admin/ai/research-report`
 - `POST /admin/ai/policy-copilot`
 - `GET /admin/rules/export`
 - `GET /admin/telemetry/persistent`
@@ -336,6 +351,8 @@ The recommendation draft endpoint converts current AI recommendations into edita
 The policy copilot endpoint is disabled by default. When enabled with `AI_COPILOT_ENABLED=true`, it returns explanation text and can validate plus dry-run generated rule JSON. It never applies changes directly; sensitive-route drafts still have to go through the existing approval flow. Local tests use the deterministic `fake` provider; demos can opt into `openai_compatible` for providers that expose a chat completions JSON API.
 
 The generated OpenAPI schema includes examples for rule metadata, dry runs, imports, rollbacks, and persistent telemetry filters. Open `/docs` while the app is running to use those examples from Swagger UI.
+
+The AI research report endpoint returns the configured Markdown artifact with metadata, and the dashboard includes an AI Research Report panel that loads it with `X-Admin-Key`.
 
 ## Portfolio Demo Walkthrough
 
@@ -437,13 +454,57 @@ Representative summary:
 
 The mixed workload is now stable: concentrated abusive traffic suppresses broad route tuning, so the advisor prefers the abuse-specific recommendation.
 
+Run a CI-friendly AI evaluation dry run with no Docker, Redis, or live app:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\ai_ci_dry_run.py
+```
+
+This writes deterministic artifacts under `tmp-test-data\ai-ci-dry-run`: a synthetic evaluation JSON report, a seeded local SQLite telemetry fixture, a persisted replay JSON report, a combined research report JSON file, and a Markdown research report. It is the safest automation command for CI jobs that only need advisor and reporting regression coverage. GitHub Actions runs the same command and uploads the directory as the `ai-ci-dry-run` artifact.
+
+Replay a persisted telemetry window from a demo run:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\ai_eval.py --telemetry-db data/telemetry.sqlite3 --since 1777940000 --limit 500 --window-name local-demo-window
+```
+
+Add `--expected-scenario fixed-window-pressure` when the captured window intentionally mirrors one of the labeled research scenarios and you want precision/recall output. Without an expected scenario, the report lists observed recommendation and anomaly labels for the selected window.
+
 Run the live AI evaluation against a running Docker/Redis stack:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\ai_live_eval.py --base-url http://localhost:8001
 ```
 
-The live report sends HTTP traffic to the app, rebuilds AI evaluation events from response status codes and rate-limit headers, and compares the observed recommendation/anomaly labels with the synthetic baseline. The default live run excludes Redis outage exposure because that scenario intentionally requires stopping Redis; use `scripts/redis_outage_demo.py` for that operational demo.
+The live report sends HTTP traffic to the app, rebuilds AI evaluation events from response status codes and rate-limit headers, and compares the observed recommendation/anomaly labels with the synthetic baseline. The default live run excludes Redis outage exposure because that scenario intentionally requires stopping Redis.
+
+Include the Redis outage reliability scenario when you want full live coverage:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\ai_live_eval.py --base-url http://localhost:8001 --include-redis-outage
+```
+
+This stops the Compose `redis` service, sends sensitive-route traffic that should be allowed fail-open, restores Redis, and verifies the live labels match the synthetic `redis-outage-exposure` scenario. Use `--skip-redis-stop` if Redis is already unavailable and `--skip-redis-restore` only when you intentionally want Redis left stopped.
+
+Generate the compact research report artifact:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\ai_research_report.py --output docs\AI_RESEARCH_REPORT.md
+```
+
+Add saved JSON inputs when available:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\ai_research_report.py --live-json tmp-test-data\live.json --outage-json tmp-test-data\outage.json --persisted-json tmp-test-data\persisted.json --output docs\AI_RESEARCH_REPORT.md
+```
+
+The checked-in [AI research report](docs/AI_RESEARCH_REPORT.md) includes the deterministic synthetic baseline by default and marks live, outage, or persisted sections as not provided until matching JSON reports are supplied.
+
+Load the latest generated report through the admin API:
+
+```bash
+curl http://localhost:8001/admin/ai/research-report -H "X-Admin-Key: dev-admin-key"
+```
 
 View passive telemetry:
 
@@ -567,5 +628,11 @@ Completed in this upgrade pass:
 - AI-P5: deterministic AI evaluation harness with labeled scenarios, precision/recall reporting, false-positive notes, and documented limitations.
 - AI-H2: OpenAI-compatible HTTP provider adapter for the policy copilot, preserving fake-provider tests and existing validation/dry-run safety boundaries.
 - AI-H3: live HTTP AI evaluation that compares Redis-backed traffic captures with the deterministic synthetic baseline.
+- AI-H4: persisted telemetry replay mode for AI evaluation windows from real demo runs.
+- AI-H5: optional Redis-outage mode in live AI evaluation for full reliability-scenario coverage.
+- AI-H6: generated AI research report artifact combining synthetic, live, outage, and persisted evaluation summaries.
+- AI-H7: CI-friendly AI dry-run command that produces synthetic, seeded persisted, and research-report artifacts without Docker, Redis, or a live app.
+- AI-H8: admin API and dashboard panel for loading the latest generated AI research report artifact.
+- AI-H9: CI workflow step that runs the AI dry-run command and uploads the generated artifact bundle.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.

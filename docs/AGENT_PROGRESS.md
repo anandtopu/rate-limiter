@@ -28,12 +28,15 @@ Last updated: 2026-05-05
 - The forward backlog has been refreshed as an AI research upgrade in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md), [BACKLOG_STATUS.md](BACKLOG_STATUS.md), and [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 - Latest known verification from this coding pass:
   - `.\.venv\Scripts\ruff.exe check .` passed.
-  - `.\.venv\Scripts\pytest.exe -q` passed with `119 passed`.
-  - `.\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml` passed with `119 passed`, `85%` total coverage, and `coverage.xml` generated.
+  - `.\.venv\Scripts\pytest.exe -q` passed with `136 passed`.
+  - `.\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml` passed with `136 passed`, `86%` total coverage, and `coverage.xml` generated.
   - `.\.venv\Scripts\python.exe scripts\ai_eval.py` passed with 9 scenarios, 9 stable scenarios, recommendation precision `1.0`, recommendation recall `1.0`, anomaly precision `1.0`, and anomaly recall `1.0`.
+  - `.\.venv\Scripts\python.exe scripts\ai_eval.py --help` passed and shows persisted telemetry replay flags.
   - `.\.venv\Scripts\python.exe scripts\ai_live_eval.py --help` passed.
+  - `.\.venv\Scripts\python.exe scripts\ai_research_report.py --output docs\AI_RESEARCH_REPORT.md` passed.
+  - `.\.venv\Scripts\python.exe scripts\ai_ci_dry_run.py --output-dir tmp-test-data\ai-ci-dry-run` passed.
 - The AI research queue is complete through AI-P5.
-- The first three post-AI-P5 follow-ups are complete through AI-H3.
+- The first nine post-AI-P5 follow-ups are complete through AI-H9.
 - Recommended first implementation read:
   - [app/core/rules.py](../app/core/rules.py)
   - [app/api/admin.py](../app/api/admin.py)
@@ -90,6 +93,12 @@ Last updated: 2026-05-05
 | AI-H1 | Done | Advisor hardening suppresses broad tuning recommendations when denials are dominated by concentrated abuse. |
 | AI-H2 | Done | OpenAI-compatible HTTP adapter for the policy copilot with provider errors isolated from config errors and fake-provider tests preserved. |
 | AI-H3 | Done | Live HTTP AI evaluation compares Redis-backed response captures with the deterministic synthetic baseline. |
+| AI-H4 | Done | Persisted SQLite telemetry windows can be replayed through AI evaluation reports with optional labeled-scenario comparison. |
+| AI-H5 | Done | Live AI evaluation can opt into a managed Redis outage to cover the reliability scenario end to end. |
+| AI-H6 | Done | Generated Markdown research report artifact combines available synthetic, live, outage, and persisted AI evaluation summaries. |
+| AI-H7 | Done | CI-friendly AI dry-run wrapper writes synthetic, seeded persisted, and research-report artifacts without Docker, Redis, or a live app. |
+| AI-H8 | Done | Admin API endpoint and dashboard panel expose the latest generated AI research report artifact. |
+| AI-H9 | Done | CI runs the AI dry-run wrapper and uploads the generated research artifact bundle. |
 
 ## Verification Commands
 
@@ -98,7 +107,11 @@ Last updated: 2026-05-05
 .\.venv\Scripts\pytest.exe -q
 .\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml
 .\.venv\Scripts\python.exe scripts\ai_eval.py
+.\.venv\Scripts\python.exe scripts\ai_eval.py --telemetry-db data/telemetry.sqlite3 --since 1777940000 --limit 500 --window-name local-demo-window
 .\.venv\Scripts\python.exe scripts\ai_live_eval.py --base-url http://localhost:8001
+.\.venv\Scripts\python.exe scripts\ai_live_eval.py --base-url http://localhost:8001 --include-redis-outage
+.\.venv\Scripts\python.exe scripts\ai_research_report.py --output docs\AI_RESEARCH_REPORT.md
+.\.venv\Scripts\python.exe scripts\ai_ci_dry_run.py --output-dir tmp-test-data\ai-ci-dry-run
 .\.venv\Scripts\bandit.exe -q -r app -c pyproject.toml
 .\.venv\Scripts\cyclonedx-py.exe requirements requirements.txt --of JSON --output-reproducible --output-file sbom.json
 docker-compose build web
@@ -123,5 +136,5 @@ curl.exe -s http://localhost:8001/admin/telemetry/persistent -H "X-Admin-Key: de
 
 No queued AI backlog items remain. Candidate follow-ups:
 
-1. Add persisted-telemetry-backed evaluation windows so research reports can replay real demo runs.
-2. Add optional Redis-outage integration mode to `scripts/ai_live_eval.py` for full live coverage of the reliability scenario.
+1. Add downloadable Markdown/text response support for `/admin/ai/research-report` in addition to the JSON view.
+2. Add a small index/manifest inside the AI CI artifact bundle that summarizes artifact file paths and statuses for CI readers.

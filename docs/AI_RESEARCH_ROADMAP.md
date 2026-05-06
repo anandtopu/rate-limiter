@@ -220,7 +220,12 @@ Implemented result:
 - `scripts/ai_eval.py` runs labeled synthetic scenarios for normal free traffic, premium bursts, abusive identifiers, retry loops, route spikes, sensitive-route probing, Redis outage exposure, fixed-window pressure, and mixed workloads.
 - The report includes recommendation/anomaly precision and recall, false-positive notes, denied-legitimate estimates, abuse-reduction estimates, policy-stability status, and limitations.
 - Representative output currently reports `recommendation_precision: 1.0`, `recommendation_recall: 1.0`, `anomaly_precision: 1.0`, `anomaly_recall: 1.0`, and `policy_stability: "stable"` after advisor hardening suppresses route-wide tuning when denials are dominated by concentrated abuse.
-- `scripts/ai_live_eval.py` complements the synthetic harness by sending HTTP traffic to a running app, rebuilding evaluation events from rate-limit headers and status codes, and comparing live observed labels with the synthetic baseline. Redis outage exposure remains outside the default live run because it intentionally requires stopping Redis.
+- `scripts/ai_eval.py --telemetry-db ...` replays persisted SQLite telemetry windows from real demo runs and can optionally compare the observed labels with a named synthetic scenario.
+- `scripts/ai_live_eval.py` complements the synthetic harness by sending HTTP traffic to a running app, rebuilding evaluation events from rate-limit headers and status codes, and comparing live observed labels with the synthetic baseline. Redis outage exposure remains opt-in through `--include-redis-outage` because it intentionally stops or assumes unavailable Redis.
+- `scripts/ai_research_report.py` generates a compact Markdown report artifact from the deterministic synthetic baseline plus optional saved live, outage, and persisted evaluation JSON.
+- `scripts/ai_ci_dry_run.py` runs the CI-safe path: deterministic synthetic evaluation, a seeded local SQLite persisted replay, and a combined research report without Docker, Redis, network calls, or a running app.
+- `GET /admin/ai/research-report` and the dashboard AI Research Report panel expose the configured Markdown artifact through the protected admin control plane.
+- GitHub Actions runs the CI-safe dry-run command and uploads the generated report bundle as the `ai-ci-dry-run` artifact.
 
 ## Documentation Tasks
 

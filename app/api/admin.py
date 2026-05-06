@@ -1,3 +1,4 @@
+from pathlib import Path as FilePath
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Request, Response, status
@@ -195,6 +196,16 @@ POLICY_COPILOT_BODY_EXAMPLES = {
         },
     },
 }
+AI_RESEARCH_REPORT_RESPONSE_EXAMPLE = {
+    "schema_version": 1,
+    "path": "docs/AI_RESEARCH_REPORT.md",
+    "exists": True,
+    "bytes": 1200,
+    "modified_at": 1_734_000_000.0,
+    "line_count": 42,
+    "content_type": "text/markdown",
+    "content": "# AI Rate Limiter Research Report\n\n## Summary\n\n- Overall status: `stable`\n",
+}
 
 
 def get_rules_manager():
@@ -290,6 +301,56 @@ async def get_admin_keys(request: Request):
 )
 async def get_ai_anomalies():
     return telemetry_hub.detect_anomalies()
+
+
+@router.get(
+    "/ai/research-report",
+    summary="Read the latest generated AI research report artifact",
+    responses={
+        200: {
+            "description": "Configured Markdown AI research report artifact.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "generated_report": {"value": AI_RESEARCH_REPORT_RESPONSE_EXAMPLE}
+                    }
+                }
+            },
+        },
+        404: {"description": "Configured AI research report artifact was not found."},
+    },
+)
+async def get_ai_research_report():
+    configured_path = settings.ai_research_report_path
+    report_path = FilePath(configured_path)
+    if not report_path.is_absolute():
+        report_path = FilePath.cwd() / report_path
+
+    if not report_path.exists() or not report_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"AI research report artifact not found: {configured_path}",
+        )
+
+    try:
+        content = report_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="AI research report artifact must be UTF-8 Markdown",
+        ) from exc
+
+    stat = report_path.stat()
+    return {
+        "schema_version": 1,
+        "path": configured_path,
+        "exists": True,
+        "bytes": stat.st_size,
+        "modified_at": stat.st_mtime,
+        "line_count": len(content.splitlines()),
+        "content_type": "text/markdown",
+        "content": content,
+    }
 
 
 @router.post(

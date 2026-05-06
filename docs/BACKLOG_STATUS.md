@@ -56,6 +56,12 @@
 - Harden advisor tuning so concentrated abusive route-identifier pressure suppresses broad route-limit tuning recommendations.
 - Add an OpenAI-compatible HTTP provider adapter behind the AI-P4 policy copilot boundary while preserving the deterministic fake adapter for local tests.
 - Add live HTTP AI evaluation that compares Redis-backed response captures with the deterministic synthetic baseline.
+- Add persisted SQLite telemetry replay windows to the AI evaluation harness.
+- Add optional Redis-outage mode to live AI evaluation for end-to-end reliability-scenario coverage.
+- Add a generated AI research report artifact that combines synthetic, live, outage, and persisted evaluation summaries.
+- Add CI-friendly AI dry-run artifacts that do not require Docker, Redis, or a live app.
+- Add an admin API endpoint and dashboard panel for the latest generated AI research report artifact.
+- Add CI workflow wiring that uploads the AI dry-run artifact bundle.
 
 ## Remaining
 
@@ -75,6 +81,12 @@
 
 - The original portfolio upgrade backlog is complete through Phase 35. The new queue is the AI research upgrade described in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md).
 - The AI research queue is complete through AI-P5. Next work should be selected from new user priorities or follow-up hardening identified by the evaluation report.
+- The ninth post-AI-P5 hardening pass updates GitHub Actions to run `python scripts/ai_ci_dry_run.py --output-dir tmp-test-data/ai-ci-dry-run` and upload that directory as the `ai-ci-dry-run` artifact.
+- The eighth post-AI-P5 hardening pass adds `GET /admin/ai/research-report`, `AI_RESEARCH_REPORT_PATH`, OpenAPI coverage, and a dashboard AI Research Report panel for reading the generated Markdown artifact through the protected admin control plane.
+- The seventh post-AI-P5 hardening pass adds `scripts/ai_ci_dry_run.py` and `make ai-ci-dry-run`. It writes deterministic synthetic evaluation JSON, a seeded local SQLite telemetry fixture, persisted replay JSON, and combined research-report artifacts under `tmp-test-data/ai-ci-dry-run` without starting Docker, Redis, or the app.
+- The sixth post-AI-P5 hardening pass adds `scripts/ai_research_report.py`, `make ai-research-report`, and [AI_RESEARCH_REPORT.md](AI_RESEARCH_REPORT.md). The report includes the deterministic synthetic baseline by default and can fold in saved live, outage, and persisted evaluation JSON.
+- The fifth post-AI-P5 hardening pass adds `scripts/ai_live_eval.py --include-redis-outage`, which can stop Compose Redis, capture sensitive-route fail-open traffic, restore Redis, and compare the live reliability labels with the synthetic `redis-outage-exposure` scenario.
+- The fourth post-AI-P5 hardening pass extends `scripts/ai_eval.py` with `--telemetry-db`, `--since`, `--until`, `--limit`, `--window-name`, and optional `--expected-scenario` for replaying persisted SQLite telemetry windows.
 - The third post-AI-P5 hardening pass adds `scripts/ai_live_eval.py` and `make ai-live-eval`. The script sends live HTTP traffic, rebuilds AI evaluation events from response headers and status codes, and compares observed labels with `scripts/ai_eval.py`.
 - The second post-AI-P5 hardening pass adds `AI_COPILOT_PROVIDER=openai_compatible` with `AI_COPILOT_ENDPOINT`, optional `AI_COPILOT_API_KEY`, `AI_COPILOT_MODEL`, and `AI_COPILOT_TIMEOUT_S`. Provider failures return `502`, while disabled or missing provider configuration still returns `503`.
 - The first post-AI-P5 hardening pass suppresses route-wide tuning when route denials are dominated by a single abusive identifier. `scripts/ai_eval.py` now reports 9 stable scenarios with recommendation precision `1.0`, recommendation recall `1.0`, anomaly precision `1.0`, and anomaly recall `1.0`.

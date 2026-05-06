@@ -36,6 +36,7 @@ def captures_from_events(scenario_name, events):
 
 def test_live_ai_eval_scenarios_cover_synthetic_comparison_cases():
     live_names = {scenario.name for scenario in ai_live_eval.build_live_scenarios(run_id="t")}
+    outage = ai_live_eval.build_redis_outage_scenario(run_id="t")
 
     assert {
         "normal-free-traffic",
@@ -47,6 +48,8 @@ def test_live_ai_eval_scenarios_cover_synthetic_comparison_cases():
         "fixed-window-pressure",
     }.issubset(live_names)
     assert "redis-outage-exposure" not in live_names
+    assert outage.name == "redis-outage-exposure"
+    assert outage.requests[0][0].startswith("/api/accounts/live-outage-")
 
 
 def test_live_ai_eval_rebuilds_events_from_captured_http_responses():
@@ -63,6 +66,7 @@ def test_live_ai_eval_rebuilds_events_from_captured_http_responses():
             "X-RateLimit-Algorithm": "fixed_window",
             "Retry-After": "1",
         },
+        redis_fail_open=True,
     )
 
     event = ai_live_eval.captured_response_to_event(capture)
@@ -75,6 +79,7 @@ def test_live_ai_eval_rebuilds_events_from_captured_http_responses():
     assert event.algorithm == "fixed_window"
     assert event.fail_mode == "closed"
     assert event.retry_after_s == 1
+    assert event.redis_fail_open is True
 
 
 def test_live_ai_eval_route_helpers_cover_templates_and_metadata():
@@ -160,7 +165,15 @@ def test_live_ai_eval_send_request_captures_success_http_errors_and_url_errors(m
 
 
 def test_live_ai_eval_run_live_scenario_and_readiness(monkeypatch):
-    def fake_send_request(base_url, *, scenario, endpoint, api_key, timeout_s):
+    def fake_send_request(
+        base_url,
+        *,
+        scenario,
+        endpoint,
+        api_key,
+        timeout_s,
+        redis_fail_open=False,
+    ):
         return ai_live_eval.CapturedResponse(
             scenario=scenario,
             endpoint=endpoint,
@@ -169,6 +182,7 @@ def test_live_ai_eval_run_live_scenario_and_readiness(monkeypatch):
             status=200,
             latency_ms=1.0,
             headers={},
+            redis_fail_open=redis_fail_open,
         )
 
     monkeypatch.setattr(ai_live_eval, "send_request", fake_send_request)
@@ -179,9 +193,15 @@ def test_live_ai_eval_run_live_scenario_and_readiness(monkeypatch):
         concurrency=2,
     )
 
-    captures = ai_live_eval.run_live_scenario("http://test", scenario, timeout_s=1)
+    captures = ai_live_eval.run_live_scenario(
+        "http://test",
+        scenario,
+        timeout_s=1,
+        redis_fail_open=True,
+    )
 
     assert [capture.api_key for capture in captures] == ["first", "second"]
+    assert {capture.redis_fail_open for capture in captures} == {True}
 
     class FakeReadyResponse:
         status = 200
@@ -206,6 +226,61 @@ def test_live_ai_eval_run_live_scenario_and_readiness(monkeypatch):
         lambda request, timeout: (_ for _ in ()).throw(URLError("down")),
     )
     assert ai_live_eval.check_readiness("http://test", timeout_s=1)["ready"] is False
+
+
+def test_live_ai_eval_runs_redis_outage_scenario_with_optional_restore(monkeypatch):
+    commands = []
+
+    def fake_run_command(args):
+        commands.append(args)
+        return {
+            "command": " ".join(args),
+            "returncode": 0,
+            "stdout": "",
+            "stderr": "",
+            "duration_ms": 1.0,
+        }
+
+    def fake_run_live_scenario(base_url, scenario, *, timeout_s, redis_fail_open=False):
+        return [
+            ai_live_eval.CapturedResponse(
+                scenario=scenario.name,
+                endpoint=scenario.requests[0][0],
+                api_key=scenario.requests[0][1],
+                timestamp=123.0,
+                status=200,
+                latency_ms=1.0,
+                headers={
+                    "X-RateLimit-Limit": "5",
+                    "X-RateLimit-Remaining": "5",
+                    "X-RateLimit-Algorithm": "sliding_window",
+                },
+                redis_fail_open=redis_fail_open,
+            )
+        ]
+
+    monkeypatch.setattr(ai_live_eval, "run_command", fake_run_command)
+    monkeypatch.setattr(ai_live_eval, "run_live_scenario", fake_run_live_scenario)
+    monkeypatch.setattr(ai_live_eval.time, "sleep", lambda seconds: None)
+
+    result = ai_live_eval.run_redis_outage_scenario(
+        "http://test",
+        ai_live_eval.build_redis_outage_scenario(run_id="t"),
+        compose_command="docker compose",
+        redis_service="redis",
+        settle_seconds=0,
+        restore_seconds=0,
+        skip_stop=False,
+        skip_restore=False,
+        timeout_s=1,
+    )
+
+    assert result["managed_outage"] is True
+    assert result["restored"] is True
+    assert len(result["commands"]) == 2
+    assert commands[0] == ["docker", "compose", "stop", "redis"]
+    assert commands[1] == ["docker", "compose", "up", "-d", "redis"]
+    assert result["captures"][0].redis_fail_open is True
 
 
 def test_live_ai_eval_report_compares_captures_to_synthetic_labels(monkeypatch):
@@ -233,6 +308,70 @@ def test_live_ai_eval_report_compares_captures_to_synthetic_labels(monkeypatch):
     assert scenarios["normal-free-traffic"]["matches_synthetic_observed"] is True
     assert scenarios["abusive-identifier"]["recommendations"]["observed"] == ["abuse"]
     assert scenarios["route-spike"]["anomalies"]["observed"] == ["route_traffic_spike"]
+
+
+def test_live_ai_eval_report_can_include_redis_outage_scenario(monkeypatch):
+    def fake_run_live_scenario(base_url, scenario, *, timeout_s, redis_fail_open=False):
+        synthetic_events = {
+            scenario.name: scenario.events for scenario in ai_eval.build_scenarios()
+        }
+        return captures_from_events(scenario.name, synthetic_events[scenario.name])
+
+    def fake_run_redis_outage_scenario(
+        base_url,
+        scenario,
+        *,
+        compose_command,
+        redis_service,
+        settle_seconds,
+        restore_seconds,
+        skip_stop,
+        skip_restore,
+        timeout_s,
+    ):
+        captures = captures_from_events(
+            scenario.name,
+            next(
+                item.events
+                for item in ai_eval.build_scenarios()
+                if item.name == "redis-outage-exposure"
+            ),
+        )
+        captures = [
+            ai_live_eval.CapturedResponse(
+                **{**capture.__dict__, "redis_fail_open": True}
+            )
+            for capture in captures
+        ]
+        return {
+            "managed_outage": False,
+            "redis_service": redis_service,
+            "commands": [],
+            "captures": captures,
+            "restored": False,
+        }
+
+    monkeypatch.setattr(ai_live_eval, "run_live_scenario", fake_run_live_scenario)
+    monkeypatch.setattr(ai_live_eval, "run_redis_outage_scenario", fake_run_redis_outage_scenario)
+
+    report = ai_live_eval.run_live_evaluation(
+        base_url="http://test",
+        generated_at=123,
+        run_id="test",
+        scenario_names={"redis-outage-exposure"},
+        include_redis_outage=True,
+        skip_readiness=True,
+        skip_redis_stop=True,
+    )
+
+    assert report["summary"]["live_scenarios"] == 1
+    assert report["summary"]["synthetic_agreement"] == "matched"
+    assert report["outage_runs"][0]["managed_outage"] is False
+    scenario = report["scenarios"][0]
+    assert scenario["name"] == "redis-outage-exposure"
+    assert scenario["capture"]["redis_fail_open"] == 2
+    assert scenario["recommendations"]["observed"] == ["reliability"]
+    assert scenario["anomalies"]["observed"] == ["redis_outage_exposure"]
 
 
 def test_live_ai_eval_marks_capture_errors_for_review():
@@ -297,6 +436,8 @@ def test_live_ai_eval_main_writes_optional_report(monkeypatch, capsys):
         "--output",
         str(output_path),
         "--skip-readiness",
+        "--include-redis-outage",
+        "--skip-redis-stop",
     ]
     try:
         ai_live_eval.main()

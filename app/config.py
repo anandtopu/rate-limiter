@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     ai_copilot_api_key: str | None = None
     ai_copilot_model: str = "policy-copilot"
     ai_copilot_timeout_s: float = 10.0
+    ai_research_report_path: str = "docs/AI_RESEARCH_REPORT.md"
 
 
 settings = Settings()
