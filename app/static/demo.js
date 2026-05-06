@@ -304,6 +304,8 @@ async function loadAIResearchReport() {
     path: body.path,
     bytes: body.bytes,
     modified_at: body.modified_at,
+    etag: body.etag,
+    last_modified: body.last_modified,
     line_count: body.line_count,
     content_type: body.content_type,
     download_url: body.download_url,

@@ -327,6 +327,8 @@ This keeps runtime behavior deterministic and gives every AI proposal the same s
 22. Refresh verification and generated AI CI artifacts after the reviewer-ergonomics batch.
 23. Add an optional dashboard screenshot refresh helper for the AI Research Report panel.
 24. Configure explicit CI artifact retention for coverage, SBOM, and AI dry-run bundles.
+25. Add standard freshness headers to generated AI research report responses.
+26. Honor conditional request headers for unchanged generated AI research report responses.
 
 ### Safety Requirements
 

@@ -22,14 +22,15 @@ Last updated: 2026-05-06
 
 ## Resume Snapshot
 
-- Saved for resume on 2026-05-05.
+- Saved for resume on 2026-05-06 after completing AI-H26.
 - Worktree contains cumulative uncommitted backlog changes from the current implementation pass.
 - The original portfolio upgrade is complete through Phase 35.
 - The forward backlog has been refreshed as an AI research upgrade in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md), [BACKLOG_STATUS.md](BACKLOG_STATUS.md), and [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 - Latest known verification from this coding pass:
   - `.\.venv\Scripts\ruff.exe check .` passed.
-  - `.\.venv\Scripts\pytest.exe -q` passed with `145 passed`.
-  - `.\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml` passed with `145 passed`, `86%` total coverage, and `coverage.xml` generated.
+  - `.\.venv\Scripts\pytest.exe -q` passed with `147 passed`.
+  - `.\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml` passed with `147 passed`, `86%` total coverage, and `coverage.xml` generated.
+  - `.\.venv\Scripts\pytest.exe tests\test_ai.py -q` passed with `11 passed` after AI-H26.
   - `.\.venv\Scripts\python.exe scripts\ai_eval.py` passed with 9 scenarios, 9 stable scenarios, recommendation precision `1.0`, recommendation recall `1.0`, anomaly precision `1.0`, and anomaly recall `1.0`.
   - `.\.venv\Scripts\python.exe scripts\ai_eval.py --help` passed and shows persisted telemetry replay flags.
   - `.\.venv\Scripts\python.exe scripts\ai_live_eval.py --help` passed.
@@ -37,7 +38,8 @@ Last updated: 2026-05-06
   - `.\.venv\Scripts\python.exe scripts\ai_ci_dry_run.py --output-dir tmp-test-data\ai-ci-dry-run` passed.
   - `.\.venv\Scripts\python.exe scripts\dashboard_screenshots.py --base-url http://localhost:8001` passed with `status: skipped` because Playwright is not installed in this local environment.
 - The AI research queue is complete through AI-P5.
-- The first twenty-four post-AI-P5 follow-ups are complete through AI-H24.
+- The first twenty-six post-AI-P5 follow-ups are complete through AI-H26.
+- Resume posture: no queued AI backlog item is currently selected; next session should pick a new user-prioritized candidate or a fresh hardening item from future evaluation findings.
 - Recommended first implementation read:
   - [app/core/rules.py](../app/core/rules.py)
   - [app/api/admin.py](../app/api/admin.py)
@@ -115,6 +117,8 @@ Last updated: 2026-05-06
 | AI-H22 | Done | Final verification and generated AI CI artifact refresh completed for the 10-item batch. |
 | AI-H23 | Done | Optional dashboard screenshot refresh helper targets the AI Research Report panel and skips cleanly when Playwright is not installed. |
 | AI-H24 | Done | CI artifact uploads for coverage, SBOM, and AI dry-run bundles retain artifacts for 30 days. |
+| AI-H25 | Done | AI research report JSON and Markdown responses expose `ETag`, `Last-Modified`, and `Cache-Control` freshness metadata. |
+| AI-H26 | Done | AI research report JSON and Markdown responses honor `If-None-Match` and `If-Modified-Since` with `304 Not Modified`. |
 
 ## Verification Commands
 

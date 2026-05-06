@@ -69,6 +69,8 @@ async def test_demo_static_assets_are_served(client):
     assert "format=markdown&download=true" in js_response.text
     assert "Content-Disposition" in js_response.text
     assert "AI_RESEARCH_REPORT.md" in js_response.text
+    assert "last_modified" in js_response.text
+    assert "etag" in js_response.text
     assert "runPolicyCopilot" in js_response.text
     assert "/admin/ai/policy-copilot" in js_response.text
     assert "X-Audit-Reason" in js_response.text

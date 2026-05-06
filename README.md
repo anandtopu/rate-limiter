@@ -34,6 +34,7 @@ This repository has been upgraded into a portfolio-ready "Rate Limiter Control P
 - **CI AI Dry Run**: `scripts/ai_ci_dry_run.py` generates synthetic and seeded SQLite evaluation artifacts without Docker, Redis, or a live app.
 - **CI AI Artifacts**: GitHub Actions uploads the AI dry-run report bundle as the `ai-ci-dry-run` artifact, including `MANIFEST.md` and `manifest.json` indexes.
 - **AI Research Report API**: `GET /admin/ai/research-report` exposes the latest generated Markdown report to the dashboard and admin clients.
+- **AI Report Freshness Metadata**: Research report responses include `ETag`, `Last-Modified`, and `Cache-Control` headers, and honor conditional requests with `304 Not Modified`.
 - **Dashboard Screenshot Refresh**: `scripts/dashboard_screenshots.py` can refresh desktop and mobile dashboard screenshots with the AI Research Report panel loaded when Playwright is installed.
 - **Admin Rule API**: `X-Admin-Key` protects rule inspect, validate, update, approval, and reload endpoints.
 - **Operational Endpoints**: `/health`, `/ready`, and `/metrics` expose process health, Redis readiness, and Prometheus-style counters.
@@ -377,7 +378,7 @@ The policy copilot endpoint is disabled by default. When enabled with `AI_COPILO
 
 The generated OpenAPI schema includes examples for rule metadata, dry runs, imports, rollbacks, and persistent telemetry filters. Open `/docs` while the app is running to use those examples from Swagger UI.
 
-The AI research report endpoint returns the configured Markdown artifact with metadata by default, can return raw `text/markdown` with `?format=markdown`, and the dashboard includes an AI Research Report panel that loads the JSON view or downloads the Markdown with `X-Admin-Key`.
+The AI research report endpoint returns the configured Markdown artifact with metadata by default, can return raw `text/markdown` with `?format=markdown`, and includes `ETag`, `Last-Modified`, and `Cache-Control: no-cache` headers for freshness-aware clients. It honors `If-None-Match` and `If-Modified-Since` with `304 Not Modified` when the artifact has not changed. The dashboard includes an AI Research Report panel that loads the JSON view or downloads the Markdown with `X-Admin-Key`.
 
 ## Portfolio Demo Walkthrough
 
@@ -686,5 +687,7 @@ Completed in this upgrade pass:
 - AI-H22: final verification and generated artifact refresh for this 10-item follow-up batch.
 - AI-H23: optional dashboard screenshot refresh helper for the AI Research Report panel.
 - AI-H24: GitHub Actions artifact uploads explicitly retain coverage, SBOM, and AI dry-run bundles for 30 days.
+- AI-H25: AI research report JSON and Markdown responses expose standard freshness headers and dashboard metadata.
+- AI-H26: AI research report JSON and Markdown responses honor conditional request headers with `304 Not Modified`.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.

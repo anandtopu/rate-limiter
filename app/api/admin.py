@@ -1,3 +1,4 @@
+from email.utils import formatdate, parsedate_to_datetime
 from pathlib import Path as FilePath
 from typing import Any, Literal
 
@@ -203,6 +204,8 @@ AI_RESEARCH_REPORT_RESPONSE_EXAMPLE = {
     "exists": True,
     "bytes": 1200,
     "modified_at": 1_734_000_000.0,
+    "etag": 'W/"18e6ec3e2a7c0000-4b0"',
+    "last_modified": "Wed, 11 Dec 2024 16:00:00 GMT",
     "line_count": 42,
     "content_type": "text/markdown",
     "download_url": "/admin/ai/research-report?format=markdown&download=true",
@@ -305,6 +308,37 @@ async def get_ai_anomalies():
     return telemetry_hub.detect_anomalies()
 
 
+def research_report_freshness_headers(report_path: FilePath) -> dict[str, str]:
+    stat = report_path.stat()
+    etag = f'W/"{stat.st_mtime_ns:x}-{stat.st_size:x}"'
+    return {
+        "ETag": etag,
+        "Last-Modified": formatdate(stat.st_mtime, usegmt=True),
+        "Cache-Control": "no-cache",
+    }
+
+
+def research_report_not_modified(request: Request, report_path: FilePath, etag: str) -> bool:
+    if_none_match = request.headers.get("if-none-match")
+    if if_none_match:
+        requested_etags = [item.strip() for item in if_none_match.split(",")]
+        normalized_etag = etag.removeprefix("W/")
+        return "*" in requested_etags or any(
+            item.removeprefix("W/") == normalized_etag for item in requested_etags
+        )
+
+    if_modified_since = request.headers.get("if-modified-since")
+    if not if_modified_since:
+        return False
+
+    try:
+        modified_since = parsedate_to_datetime(if_modified_since)
+    except (TypeError, ValueError, IndexError, OverflowError):
+        return False
+
+    return int(report_path.stat().st_mtime) <= int(modified_since.timestamp())
+
+
 @router.get(
     "/ai/research-report",
     summary="Read the latest generated AI research report artifact",
@@ -319,10 +353,13 @@ async def get_ai_anomalies():
                 }
             },
         },
+        304: {"description": "Research report artifact has not changed."},
         404: {"description": "Configured AI research report artifact was not found."},
     },
 )
 async def get_ai_research_report(
+    request: Request,
+    response: Response,
     format: Literal["json", "markdown"] = Query(
         "json",
         description="Return JSON metadata plus content, or raw Markdown content.",
@@ -348,6 +385,11 @@ async def get_ai_research_report(
             detail=f"AI research report artifact not found: {configured_path}",
         )
 
+    stat = report_path.stat()
+    freshness_headers = research_report_freshness_headers(report_path)
+    if research_report_not_modified(request, report_path, freshness_headers["ETag"]):
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=freshness_headers)
+
     try:
         content = report_path.read_text(encoding="utf-8")
     except UnicodeDecodeError as exc:
@@ -356,7 +398,6 @@ async def get_ai_research_report(
             detail="AI research report artifact must be UTF-8 Markdown",
         ) from exc
 
-    stat = report_path.stat()
     if format == "markdown":
         disposition = "attachment" if download else "inline"
         filename = report_path.name or "AI_RESEARCH_REPORT.md"
@@ -364,16 +405,20 @@ async def get_ai_research_report(
             content,
             media_type="text/markdown; charset=utf-8",
             headers={
+                **freshness_headers,
                 "Content-Disposition": f'{disposition}; filename="{filename}"',
             },
         )
 
+    response.headers.update(freshness_headers)
     return {
         "schema_version": 1,
         "path": configured_path,
         "exists": True,
         "bytes": stat.st_size,
         "modified_at": stat.st_mtime,
+        "etag": freshness_headers["ETag"],
+        "last_modified": freshness_headers["Last-Modified"],
         "line_count": len(content.splitlines()),
         "content_type": "text/markdown",
         "download_url": "/admin/ai/research-report?format=markdown&download=true",

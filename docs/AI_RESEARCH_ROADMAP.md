@@ -235,6 +235,7 @@ Implemented result:
 - `scripts/ai_ci_dry_run.py --list-scenarios` lists seeded persisted replay fixtures with event counts and expected labels.
 - `scripts/dashboard_screenshots.py` optionally refreshes the desktop and mobile dashboard screenshots with the AI Research Report panel loaded when Playwright is available.
 - GitHub Actions keeps `coverage-xml`, `cyclonedx-sbom`, and `ai-ci-dry-run` artifacts for 30 days.
+- AI research report JSON and Markdown responses include `ETag`, `Last-Modified`, and `Cache-Control: no-cache` freshness metadata; the dashboard JSON view surfaces the same report version fields, and the endpoint honors `If-None-Match` and `If-Modified-Since` with `304 Not Modified`.
 
 ## Documentation Tasks
 
