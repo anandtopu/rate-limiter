@@ -71,6 +71,8 @@
 - Add a canonical report `download_url` to admin JSON metadata and dashboard output.
 - Add `scripts/ai_ci_dry_run.py --list-scenarios` for persisted fixture discovery.
 - Add AI CI manifest coverage for reviewer entrypoints, section counts, and artifact statuses.
+- Add an optional dashboard screenshot refresh helper for the AI Research Report panel.
+- Add explicit 30-day CI artifact retention for coverage, SBOM, and AI dry-run uploads.
 
 ## Remaining
 
@@ -90,6 +92,7 @@
 
 - The original portfolio upgrade backlog is complete through Phase 35. The new queue is the AI research upgrade described in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md).
 - The AI research queue is complete through AI-P5. Next work should be selected from new user priorities or follow-up hardening identified by the evaluation report.
+- The twenty-third and twenty-fourth post-AI-P5 hardening passes add optional dashboard screenshot refresh automation for the AI Research Report panel and explicit 30-day retention for CI review artifacts.
 - The thirteenth through twenty-second post-AI-P5 hardening passes improve reviewer ergonomics for CI artifacts and report downloads: README artifact guidance, dashboard filename/byte-count feedback, server-provided download filenames, report `download_url` metadata, scenario discovery via `scripts/ai_ci_dry_run.py --list-scenarios`, stronger manifest tests, and refreshed verification.
 - The twelfth post-AI-P5 hardening pass adds a dashboard Download action to the AI Research Report panel. It fetches `/admin/ai/research-report?format=markdown&download=true` with the current `X-Admin-Key` and saves `AI_RESEARCH_REPORT.md` from the browser.
 - The eleventh post-AI-P5 hardening pass adds `MANIFEST.md` and `manifest.json` to `scripts/ai_ci_dry_run.py` output, summarizing artifact paths, byte counts, statuses, entrypoints, and limitations for CI artifact reviewers.

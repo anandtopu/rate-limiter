@@ -11,7 +11,7 @@ SBOM_PATH ?= sbom.json
 BASE_URL ?= http://localhost:8001
 TELEMETRY_DB ?= data/telemetry.sqlite3
 
-.PHONY: install dev test coverage lint security sbom format compose-up compose-down load-test ai-eval ai-eval-persisted ai-live-eval ai-live-eval-outage ai-research-report ai-ci-dry-run redis-outage-demo
+.PHONY: install dev test coverage lint security sbom format compose-up compose-down load-test ai-eval ai-eval-persisted ai-live-eval ai-live-eval-outage ai-research-report ai-ci-dry-run dashboard-screenshots redis-outage-demo
 
 install:
 	$(UV) pip install --python $(PYTHON) -r requirements-dev.txt
@@ -64,6 +64,9 @@ ai-research-report:
 
 ai-ci-dry-run:
 	$(PYTHON) scripts/ai_ci_dry_run.py
+
+dashboard-screenshots:
+	$(PYTHON) scripts/dashboard_screenshots.py --base-url $(BASE_URL)
 
 redis-outage-demo:
 	$(PYTHON) scripts/redis_outage_demo.py --base-url $(BASE_URL)

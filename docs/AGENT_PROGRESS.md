@@ -1,6 +1,6 @@
 # Agent Progress Tracker
 
-Last updated: 2026-05-05
+Last updated: 2026-05-06
 
 ## Current Runtime
 
@@ -28,15 +28,16 @@ Last updated: 2026-05-05
 - The forward backlog has been refreshed as an AI research upgrade in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md), [BACKLOG_STATUS.md](BACKLOG_STATUS.md), and [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 - Latest known verification from this coding pass:
   - `.\.venv\Scripts\ruff.exe check .` passed.
-  - `.\.venv\Scripts\pytest.exe -q` passed with `139 passed`.
-  - `.\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml` passed with `139 passed`, `86%` total coverage, and `coverage.xml` generated.
+  - `.\.venv\Scripts\pytest.exe -q` passed with `145 passed`.
+  - `.\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml` passed with `145 passed`, `86%` total coverage, and `coverage.xml` generated.
   - `.\.venv\Scripts\python.exe scripts\ai_eval.py` passed with 9 scenarios, 9 stable scenarios, recommendation precision `1.0`, recommendation recall `1.0`, anomaly precision `1.0`, and anomaly recall `1.0`.
   - `.\.venv\Scripts\python.exe scripts\ai_eval.py --help` passed and shows persisted telemetry replay flags.
   - `.\.venv\Scripts\python.exe scripts\ai_live_eval.py --help` passed.
   - `.\.venv\Scripts\python.exe scripts\ai_research_report.py --output docs\AI_RESEARCH_REPORT.md` passed.
   - `.\.venv\Scripts\python.exe scripts\ai_ci_dry_run.py --output-dir tmp-test-data\ai-ci-dry-run` passed.
+  - `.\.venv\Scripts\python.exe scripts\dashboard_screenshots.py --base-url http://localhost:8001` passed with `status: skipped` because Playwright is not installed in this local environment.
 - The AI research queue is complete through AI-P5.
-- The first twenty-two post-AI-P5 follow-ups are complete through AI-H22.
+- The first twenty-four post-AI-P5 follow-ups are complete through AI-H24.
 - Recommended first implementation read:
   - [app/core/rules.py](../app/core/rules.py)
   - [app/api/admin.py](../app/api/admin.py)
@@ -112,6 +113,8 @@ Last updated: 2026-05-05
 | AI-H20 | Done | README includes a CI artifact quick-reference table for reviewers. |
 | AI-H21 | Done | Backlog, roadmap, design, and implementation docs are synchronized for this follow-up batch. |
 | AI-H22 | Done | Final verification and generated AI CI artifact refresh completed for the 10-item batch. |
+| AI-H23 | Done | Optional dashboard screenshot refresh helper targets the AI Research Report panel and skips cleanly when Playwright is not installed. |
+| AI-H24 | Done | CI artifact uploads for coverage, SBOM, and AI dry-run bundles retain artifacts for 30 days. |
 
 ## Verification Commands
 
@@ -126,6 +129,7 @@ Last updated: 2026-05-05
 .\.venv\Scripts\python.exe scripts\ai_research_report.py --output docs\AI_RESEARCH_REPORT.md
 .\.venv\Scripts\python.exe scripts\ai_ci_dry_run.py --output-dir tmp-test-data\ai-ci-dry-run
 .\.venv\Scripts\python.exe scripts\ai_ci_dry_run.py --list-scenarios
+.\.venv\Scripts\python.exe scripts\dashboard_screenshots.py --base-url http://localhost:8001
 .\.venv\Scripts\bandit.exe -q -r app -c pyproject.toml
 .\.venv\Scripts\cyclonedx-py.exe requirements requirements.txt --of JSON --output-reproducible --output-file sbom.json
 docker-compose build web
@@ -148,7 +152,4 @@ curl.exe -s http://localhost:8001/admin/telemetry/persistent -H "X-Admin-Key: de
 
 ## Next Recommended Work
 
-No queued AI backlog items remain. Candidate follow-ups:
-
-1. Add optional screenshot refresh for the dashboard AI Research Report panel after the download control.
-2. Add CI artifact retention-day configuration if the repository wants retention different from the GitHub default.
+No queued AI backlog items remain. Candidate follow-ups should come from new user priorities or future evaluation findings.

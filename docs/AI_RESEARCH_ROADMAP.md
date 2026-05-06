@@ -233,6 +233,8 @@ Implemented result:
 - Report JSON metadata includes a canonical `download_url`, and the dashboard surfaces it alongside the loaded report metadata.
 - The dashboard download path reads the server-provided filename from `Content-Disposition` and reports the saved filename plus byte count.
 - `scripts/ai_ci_dry_run.py --list-scenarios` lists seeded persisted replay fixtures with event counts and expected labels.
+- `scripts/dashboard_screenshots.py` optionally refreshes the desktop and mobile dashboard screenshots with the AI Research Report panel loaded when Playwright is available.
+- GitHub Actions keeps `coverage-xml`, `cyclonedx-sbom`, and `ai-ci-dry-run` artifacts for 30 days.
 
 ## Documentation Tasks
 

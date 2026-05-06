@@ -41,6 +41,7 @@ jobs:
           name: cyclonedx-sbom
           path: sbom.json
           if-no-files-found: error
+          retention-days: 30
 
       - name: Test with coverage
         run: pytest --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml
@@ -51,6 +52,7 @@ jobs:
           name: coverage-xml
           path: coverage.xml
           if-no-files-found: error
+          retention-days: 30
 
       - name: Run AI evaluation dry run
         run: python scripts/ai_ci_dry_run.py --output-dir tmp-test-data/ai-ci-dry-run
@@ -61,3 +63,4 @@ jobs:
           name: ai-ci-dry-run
           path: tmp-test-data/ai-ci-dry-run
           if-no-files-found: error
+          retention-days: 30

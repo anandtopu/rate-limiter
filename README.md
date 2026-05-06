@@ -34,6 +34,7 @@ This repository has been upgraded into a portfolio-ready "Rate Limiter Control P
 - **CI AI Dry Run**: `scripts/ai_ci_dry_run.py` generates synthetic and seeded SQLite evaluation artifacts without Docker, Redis, or a live app.
 - **CI AI Artifacts**: GitHub Actions uploads the AI dry-run report bundle as the `ai-ci-dry-run` artifact, including `MANIFEST.md` and `manifest.json` indexes.
 - **AI Research Report API**: `GET /admin/ai/research-report` exposes the latest generated Markdown report to the dashboard and admin clients.
+- **Dashboard Screenshot Refresh**: `scripts/dashboard_screenshots.py` can refresh desktop and mobile dashboard screenshots with the AI Research Report panel loaded when Playwright is installed.
 - **Admin Rule API**: `X-Admin-Key` protects rule inspect, validate, update, approval, and reload endpoints.
 - **Operational Endpoints**: `/health`, `/ready`, and `/metrics` expose process health, Redis readiness, and Prometheus-style counters.
 - **Docker Health Checks**: Compose marks Redis and the web app healthy only after Redis responds and `/ready` succeeds.
@@ -180,6 +181,7 @@ make ai-live-eval
 make ai-live-eval-outage
 make ai-research-report
 make ai-ci-dry-run
+make dashboard-screenshots
 make redis-outage-demo
 ```
 
@@ -199,12 +201,13 @@ docker compose up --build
 .\.venv\Scripts\python.exe scripts\ai_live_eval.py --base-url http://localhost:8001 --include-redis-outage
 .\.venv\Scripts\python.exe scripts\ai_research_report.py --output docs/AI_RESEARCH_REPORT.md
 .\.venv\Scripts\python.exe scripts\ai_ci_dry_run.py
+.\.venv\Scripts\python.exe scripts\dashboard_screenshots.py --base-url http://localhost:8001
 .\.venv\Scripts\python.exe scripts\redis_outage_demo.py --base-url http://localhost:8001
 ```
 
 ## CI Artifacts
 
-GitHub Actions uploads these review artifacts from the main CI job:
+GitHub Actions uploads these review artifacts from the main CI job. Each artifact is retained for 30 days.
 
 | Artifact | Source | What to open first |
 | --- | --- | --- |
@@ -216,6 +219,12 @@ The AI dry-run artifact is intentionally self-contained and CI-safe. It does not
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\ai_ci_dry_run.py --list-scenarios
+```
+
+The checked-in dashboard screenshots can be refreshed from a running app. The script targets the AI Research Report panel, writes `docs/assets/demo-dashboard-desktop.png` and `docs/assets/demo-dashboard-mobile.png`, and exits cleanly with a skipped status when the optional Playwright browser package is not installed:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\dashboard_screenshots.py --base-url http://localhost:8001
 ```
 
 ## Configuration
@@ -675,5 +684,7 @@ Completed in this upgrade pass:
 - AI-H20: README CI artifact quick-reference table for reviewer workflows.
 - AI-H21: backlog, roadmap, design, and implementation docs synchronized through AI-H20.
 - AI-H22: final verification and generated artifact refresh for this 10-item follow-up batch.
+- AI-H23: optional dashboard screenshot refresh helper for the AI Research Report panel.
+- AI-H24: GitHub Actions artifact uploads explicitly retain coverage, SBOM, and AI dry-run bundles for 30 days.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.
