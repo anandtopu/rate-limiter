@@ -62,6 +62,15 @@
 - Add CI-friendly AI dry-run artifacts that do not require Docker, Redis, or a live app.
 - Add an admin API endpoint and dashboard panel for the latest generated AI research report artifact.
 - Add CI workflow wiring that uploads the AI dry-run artifact bundle.
+- Add raw Markdown and attachment download support for the AI research report admin endpoint.
+- Add manifest files inside the AI CI dry-run artifact bundle for reviewer navigation.
+- Add a dashboard download control for the AI research report Markdown artifact.
+- Add CI artifact reviewer guidance for coverage, SBOM, and AI dry-run bundles.
+- Add dashboard report download filename and byte-count status feedback.
+- Add server-provided report download filename handling in the dashboard.
+- Add a canonical report `download_url` to admin JSON metadata and dashboard output.
+- Add `scripts/ai_ci_dry_run.py --list-scenarios` for persisted fixture discovery.
+- Add AI CI manifest coverage for reviewer entrypoints, section counts, and artifact statuses.
 
 ## Remaining
 
@@ -81,6 +90,10 @@
 
 - The original portfolio upgrade backlog is complete through Phase 35. The new queue is the AI research upgrade described in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md).
 - The AI research queue is complete through AI-P5. Next work should be selected from new user priorities or follow-up hardening identified by the evaluation report.
+- The thirteenth through twenty-second post-AI-P5 hardening passes improve reviewer ergonomics for CI artifacts and report downloads: README artifact guidance, dashboard filename/byte-count feedback, server-provided download filenames, report `download_url` metadata, scenario discovery via `scripts/ai_ci_dry_run.py --list-scenarios`, stronger manifest tests, and refreshed verification.
+- The twelfth post-AI-P5 hardening pass adds a dashboard Download action to the AI Research Report panel. It fetches `/admin/ai/research-report?format=markdown&download=true` with the current `X-Admin-Key` and saves `AI_RESEARCH_REPORT.md` from the browser.
+- The eleventh post-AI-P5 hardening pass adds `MANIFEST.md` and `manifest.json` to `scripts/ai_ci_dry_run.py` output, summarizing artifact paths, byte counts, statuses, entrypoints, and limitations for CI artifact reviewers.
+- The tenth post-AI-P5 hardening pass extends `GET /admin/ai/research-report` with `format=json|markdown` and `download=true`, preserving the JSON dashboard view while enabling raw `text/markdown` responses and attachment downloads.
 - The ninth post-AI-P5 hardening pass updates GitHub Actions to run `python scripts/ai_ci_dry_run.py --output-dir tmp-test-data/ai-ci-dry-run` and upload that directory as the `ai-ci-dry-run` artifact.
 - The eighth post-AI-P5 hardening pass adds `GET /admin/ai/research-report`, `AI_RESEARCH_REPORT_PATH`, OpenAPI coverage, and a dashboard AI Research Report panel for reading the generated Markdown artifact through the protected admin control plane.
 - The seventh post-AI-P5 hardening pass adds `scripts/ai_ci_dry_run.py` and `make ai-ci-dry-run`. It writes deterministic synthetic evaluation JSON, a seeded local SQLite telemetry fixture, persisted replay JSON, and combined research-report artifacts under `tmp-test-data/ai-ci-dry-run` without starting Docker, Redis, or the app.

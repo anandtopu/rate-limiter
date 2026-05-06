@@ -28,15 +28,15 @@ Last updated: 2026-05-05
 - The forward backlog has been refreshed as an AI research upgrade in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md), [BACKLOG_STATUS.md](BACKLOG_STATUS.md), and [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
 - Latest known verification from this coding pass:
   - `.\.venv\Scripts\ruff.exe check .` passed.
-  - `.\.venv\Scripts\pytest.exe -q` passed with `136 passed`.
-  - `.\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml` passed with `136 passed`, `86%` total coverage, and `coverage.xml` generated.
+  - `.\.venv\Scripts\pytest.exe -q` passed with `139 passed`.
+  - `.\.venv\Scripts\pytest.exe --cov=app --cov=scripts --cov-report=term-missing --cov-report=xml` passed with `139 passed`, `86%` total coverage, and `coverage.xml` generated.
   - `.\.venv\Scripts\python.exe scripts\ai_eval.py` passed with 9 scenarios, 9 stable scenarios, recommendation precision `1.0`, recommendation recall `1.0`, anomaly precision `1.0`, and anomaly recall `1.0`.
   - `.\.venv\Scripts\python.exe scripts\ai_eval.py --help` passed and shows persisted telemetry replay flags.
   - `.\.venv\Scripts\python.exe scripts\ai_live_eval.py --help` passed.
   - `.\.venv\Scripts\python.exe scripts\ai_research_report.py --output docs\AI_RESEARCH_REPORT.md` passed.
   - `.\.venv\Scripts\python.exe scripts\ai_ci_dry_run.py --output-dir tmp-test-data\ai-ci-dry-run` passed.
 - The AI research queue is complete through AI-P5.
-- The first nine post-AI-P5 follow-ups are complete through AI-H9.
+- The first twenty-two post-AI-P5 follow-ups are complete through AI-H22.
 - Recommended first implementation read:
   - [app/core/rules.py](../app/core/rules.py)
   - [app/api/admin.py](../app/api/admin.py)
@@ -99,6 +99,19 @@ Last updated: 2026-05-05
 | AI-H7 | Done | CI-friendly AI dry-run wrapper writes synthetic, seeded persisted, and research-report artifacts without Docker, Redis, or a live app. |
 | AI-H8 | Done | Admin API endpoint and dashboard panel expose the latest generated AI research report artifact. |
 | AI-H9 | Done | CI runs the AI dry-run wrapper and uploads the generated research artifact bundle. |
+| AI-H10 | Done | AI research report endpoint can return raw Markdown and attachment downloads in addition to JSON metadata. |
+| AI-H11 | Done | AI CI dry-run bundle includes `MANIFEST.md` and `manifest.json` indexes with artifact paths, statuses, and byte counts. |
+| AI-H12 | Done | Dashboard AI Research Report panel can download the raw Markdown artifact with the current admin key. |
+| AI-H13 | Done | README documents CI artifact bundle locations and reviewer entrypoints. |
+| AI-H14 | Done | Dashboard report download status reports saved filename and byte count. |
+| AI-H15 | Done | Dashboard report download uses the server-provided `Content-Disposition` filename. |
+| AI-H16 | Done | AI research report JSON metadata includes a canonical `download_url`. |
+| AI-H17 | Done | Dashboard JSON view displays the report `download_url`. |
+| AI-H18 | Done | `scripts/ai_ci_dry_run.py --list-scenarios` lists seeded persisted replay scenarios. |
+| AI-H19 | Done | AI CI manifest tests cover reviewer entrypoints, section counts, and artifact statuses. |
+| AI-H20 | Done | README includes a CI artifact quick-reference table for reviewers. |
+| AI-H21 | Done | Backlog, roadmap, design, and implementation docs are synchronized for this follow-up batch. |
+| AI-H22 | Done | Final verification and generated AI CI artifact refresh completed for the 10-item batch. |
 
 ## Verification Commands
 
@@ -112,6 +125,7 @@ Last updated: 2026-05-05
 .\.venv\Scripts\python.exe scripts\ai_live_eval.py --base-url http://localhost:8001 --include-redis-outage
 .\.venv\Scripts\python.exe scripts\ai_research_report.py --output docs\AI_RESEARCH_REPORT.md
 .\.venv\Scripts\python.exe scripts\ai_ci_dry_run.py --output-dir tmp-test-data\ai-ci-dry-run
+.\.venv\Scripts\python.exe scripts\ai_ci_dry_run.py --list-scenarios
 .\.venv\Scripts\bandit.exe -q -r app -c pyproject.toml
 .\.venv\Scripts\cyclonedx-py.exe requirements requirements.txt --of JSON --output-reproducible --output-file sbom.json
 docker-compose build web
@@ -136,5 +150,5 @@ curl.exe -s http://localhost:8001/admin/telemetry/persistent -H "X-Admin-Key: de
 
 No queued AI backlog items remain. Candidate follow-ups:
 
-1. Add downloadable Markdown/text response support for `/admin/ai/research-report` in addition to the JSON view.
-2. Add a small index/manifest inside the AI CI artifact bundle that summarizes artifact file paths and statuses for CI readers.
+1. Add optional screenshot refresh for the dashboard AI Research Report panel after the download control.
+2. Add CI artifact retention-day configuration if the repository wants retention different from the GitHub default.

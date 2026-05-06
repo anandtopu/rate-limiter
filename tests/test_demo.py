@@ -25,6 +25,7 @@ async def test_demo_dashboard_returns_html(client):
     assert "anomaliesBtn" in response.text
     assert "AI Research Report" in response.text
     assert "aiResearchReportBtn" in response.text
+    assert "aiResearchReportDownloadBtn" in response.text
     assert "Policy Copilot" in response.text
     assert "policyCopilotBtn" in response.text
 
@@ -62,7 +63,12 @@ async def test_demo_static_assets_are_served(client):
     assert "loadAnomalies" in js_response.text
     assert "/admin/ai/anomalies" in js_response.text
     assert "loadAIResearchReport" in js_response.text
+    assert "downloadAIResearchReport" in js_response.text
+    assert "downloadFilename" in js_response.text
     assert "/admin/ai/research-report" in js_response.text
+    assert "format=markdown&download=true" in js_response.text
+    assert "Content-Disposition" in js_response.text
+    assert "AI_RESEARCH_REPORT.md" in js_response.text
     assert "runPolicyCopilot" in js_response.text
     assert "/admin/ai/policy-copilot" in js_response.text
     assert "X-Audit-Reason" in js_response.text

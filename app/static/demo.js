@@ -18,6 +18,7 @@ const els = {
   recommendationDraftBtn: document.querySelector("#recommendationDraftBtn"),
   anomaliesBtn: document.querySelector("#anomaliesBtn"),
   aiResearchReportBtn: document.querySelector("#aiResearchReportBtn"),
+  aiResearchReportDownloadBtn: document.querySelector("#aiResearchReportDownloadBtn"),
   policyCopilotBtn: document.querySelector("#policyCopilotBtn"),
   rulesBtn: document.querySelector("#rulesBtn"),
   historyBtn: document.querySelector("#historyBtn"),
@@ -305,7 +306,47 @@ async function loadAIResearchReport() {
     modified_at: body.modified_at,
     line_count: body.line_count,
     content_type: body.content_type,
+    download_url: body.download_url,
     markdown: body.content,
+  });
+}
+
+function downloadFilename(response) {
+  const disposition = response.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="([^"]+)"/);
+  return match ? match[1] : "AI_RESEARCH_REPORT.md";
+}
+
+async function downloadAIResearchReport() {
+  const response = await fetch(
+    "/admin/ai/research-report?format=markdown&download=true",
+    {
+      headers: requestHeaders(true),
+    },
+  );
+
+  if (!response.ok) {
+    const body = await readJson(response);
+    els.aiResearchReportOutput.textContent = pretty(body);
+    return;
+  }
+
+  const markdown = await response.text();
+  const filename = downloadFilename(response);
+  const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+
+  els.aiResearchReportOutput.textContent = pretty({
+    downloaded: true,
+    filename,
+    bytes: markdown.length,
   });
 }
 
@@ -652,6 +693,10 @@ els.anomaliesBtn.addEventListener("click", () => {
 
 els.aiResearchReportBtn.addEventListener("click", () => {
   loadAIResearchReport();
+});
+
+els.aiResearchReportDownloadBtn.addEventListener("click", () => {
+  downloadAIResearchReport();
 });
 
 els.policyCopilotBtn.addEventListener("click", () => {

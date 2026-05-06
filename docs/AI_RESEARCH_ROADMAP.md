@@ -226,6 +226,13 @@ Implemented result:
 - `scripts/ai_ci_dry_run.py` runs the CI-safe path: deterministic synthetic evaluation, a seeded local SQLite persisted replay, and a combined research report without Docker, Redis, network calls, or a running app.
 - `GET /admin/ai/research-report` and the dashboard AI Research Report panel expose the configured Markdown artifact through the protected admin control plane.
 - GitHub Actions runs the CI-safe dry-run command and uploads the generated report bundle as the `ai-ci-dry-run` artifact.
+- `GET /admin/ai/research-report?format=markdown&download=true` returns the configured Markdown artifact as a downloadable `text/markdown` response for review workflows.
+- The AI CI dry-run artifact bundle includes `MANIFEST.md` and `manifest.json` so CI reviewers can quickly find report files, statuses, byte counts, and limitations.
+- The dashboard AI Research Report panel can download the raw Markdown artifact using the current admin key.
+- CI artifact reviewer guidance now points to `coverage-xml`, `cyclonedx-sbom`, and the `ai-ci-dry-run` manifest entrypoints.
+- Report JSON metadata includes a canonical `download_url`, and the dashboard surfaces it alongside the loaded report metadata.
+- The dashboard download path reads the server-provided filename from `Content-Disposition` and reports the saved filename plus byte count.
+- `scripts/ai_ci_dry_run.py --list-scenarios` lists seeded persisted replay fixtures with event counts and expected labels.
 
 ## Documentation Tasks
 

@@ -318,6 +318,13 @@ This keeps runtime behavior deterministic and gives every AI proposal the same s
 13. Add a CI-friendly AI dry-run artifact path that does not require Docker, Redis, network access, or a running app.
 14. Expose the generated AI research report artifact through the admin API and demo dashboard.
 15. Run the CI-friendly AI dry-run in GitHub Actions and upload its generated artifact bundle.
+16. Add raw Markdown and attachment download response modes for the AI research report endpoint.
+17. Add manifest/index files to the AI CI artifact bundle for reviewer navigation.
+18. Add a dashboard download control for the generated AI research report Markdown artifact.
+19. Add CI artifact reviewer guidance for coverage, SBOM, and AI dry-run bundles.
+20. Add dashboard report download filename and byte-count feedback.
+21. Add seeded scenario discovery to the CI dry-run script.
+22. Refresh verification and generated AI CI artifacts after the reviewer-ergonomics batch.
 
 ### Safety Requirements
 

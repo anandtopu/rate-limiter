@@ -143,6 +143,12 @@ async def test_openapi_includes_admin_examples(client):
         "content"
     ]["application/json"]["examples"]
     assert report_examples["generated_report"]["value"]["content_type"] == "text/markdown"
+    report_params = {
+        parameter["name"]: parameter
+        for parameter in paths["/admin/ai/research-report"]["get"]["parameters"]
+    }
+    assert report_params["format"]["examples"]["markdown_view"]["value"] == "markdown"
+    assert report_params["download"]["examples"]["download_file"]["value"] is True
 
     telemetry_params = {
         parameter["name"]: parameter

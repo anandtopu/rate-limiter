@@ -15,11 +15,147 @@ from scripts import ai_eval, ai_research_report  # noqa: E402
 
 DEFAULT_OUTPUT_DIR = Path("tmp-test-data") / "ai-ci-dry-run"
 DEFAULT_PERSISTED_SCENARIO = "fixed-window-pressure"
+ARTIFACT_DESCRIPTIONS = {
+    "synthetic_json": {
+        "description": "Deterministic synthetic AI evaluation report.",
+        "content_type": "application/json",
+    },
+    "persisted_json": {
+        "description": "Seeded SQLite persisted telemetry replay report.",
+        "content_type": "application/json",
+    },
+    "research_json": {
+        "description": "Machine-readable combined research report.",
+        "content_type": "application/json",
+    },
+    "research_markdown": {
+        "description": "Human-readable combined research report.",
+        "content_type": "text/markdown",
+    },
+    "summary_json": {
+        "description": "Top-level CI dry-run summary.",
+        "content_type": "application/json",
+    },
+    "telemetry_db": {
+        "description": "Seeded local SQLite telemetry fixture.",
+        "content_type": "application/vnd.sqlite3",
+    },
+}
+
+
+def scenario_index() -> list[dict[str, Any]]:
+    return [
+        {
+            "name": scenario.name,
+            "description": scenario.description,
+            "events": len(scenario.events),
+            "expected_recommendations": sorted(scenario.expected_recommendations),
+            "expected_anomalies": sorted(scenario.expected_anomalies),
+        }
+        for scenario in ai_eval.build_scenarios()
+    ]
 
 
 def write_json(path: Path, report: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f"{json.dumps(report, indent=2)}\n", encoding="utf-8")
+
+
+def artifact_status(path: Path) -> str:
+    return "available" if path.exists() and path.stat().st_size > 0 else "missing"
+
+
+def artifact_entry(
+    *,
+    name: str,
+    path: Path,
+    output_dir: Path,
+    status: str | None = None,
+) -> dict[str, Any]:
+    description = ARTIFACT_DESCRIPTIONS[name]
+    exists = path.exists()
+    return {
+        "name": name,
+        "path": str(path),
+        "relative_path": path.relative_to(output_dir).as_posix(),
+        "description": description["description"],
+        "content_type": description["content_type"],
+        "exists": exists,
+        "bytes": path.stat().st_size if exists else 0,
+        "status": status or artifact_status(path),
+    }
+
+
+def build_manifest(
+    *,
+    output_dir: Path,
+    summary: dict[str, Any],
+    artifact_paths: dict[str, Path],
+) -> dict[str, Any]:
+    artifact_statuses = {
+        "synthetic_json": summary["summary"]["synthetic_policy_stability"],
+        "persisted_json": summary["summary"]["persisted_policy_stability"],
+        "research_json": summary["summary"]["research_overall_status"],
+        "research_markdown": summary["summary"]["research_overall_status"],
+        "summary_json": "available",
+        "telemetry_db": "available",
+    }
+    artifacts = [
+        artifact_entry(
+            name=name,
+            path=path,
+            output_dir=output_dir,
+            status=artifact_statuses.get(name),
+        )
+        for name, path in artifact_paths.items()
+    ]
+    return {
+        "schema_version": 1,
+        "kind": "rate-limiter.ai-ci-dry-run.manifest",
+        "mode": summary["mode"],
+        "status": summary["summary"]["research_overall_status"],
+        "docker_required": summary["docker_required"],
+        "redis_required": summary["redis_required"],
+        "persisted_fixture": summary["persisted_fixture"],
+        "summary": summary["summary"],
+        "recommended_entrypoints": [
+            "MANIFEST.md",
+            "AI_RESEARCH_REPORT.md",
+            "summary.json",
+        ],
+        "artifacts": artifacts,
+        "limitations": summary["limitations"],
+    }
+
+
+def render_manifest_markdown(manifest: dict[str, Any]) -> str:
+    lines = [
+        "# AI CI Dry Run Artifact Manifest",
+        "",
+        f"- Status: `{manifest['status']}`",
+        f"- Docker required: `{manifest['docker_required']}`",
+        f"- Redis required: `{manifest['redis_required']}`",
+        f"- Persisted scenario: `{manifest['persisted_fixture']['scenario']}`",
+        f"- Events seeded: `{manifest['persisted_fixture']['events_seeded']}`",
+        "",
+        "## Artifacts",
+        "",
+        "| File | Status | Bytes | Description |",
+        "| --- | --- | ---: | --- |",
+    ]
+    for item in manifest["artifacts"]:
+        lines.append(
+            f"| `{item['relative_path']}` | `{item['status']}` | "
+            f"{item['bytes']} | {item['description']} |"
+        )
+    lines.extend([
+        "",
+        "## Notes",
+        "",
+    ])
+    for note in manifest["limitations"]:
+        lines.append(f"- {note}")
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def scenario_by_name(name: str) -> ai_eval.EvaluationScenario:
@@ -87,6 +223,9 @@ def run_ci_dry_run(
         ai_research_report.render_markdown(research_report),
         encoding="utf-8",
     )
+    summary_path = output_dir / "summary.json"
+    manifest_json_path = output_dir / "manifest.json"
+    manifest_markdown_path = output_dir / "MANIFEST.md"
 
     summary = {
         "schema_version": 1,
@@ -116,6 +255,9 @@ def run_ci_dry_run(
             "persisted_json": str(persisted_path),
             "research_json": str(research_json_path),
             "research_markdown": str(research_markdown_path),
+            "summary_json": str(summary_path),
+            "manifest_json": str(manifest_json_path),
+            "manifest_markdown": str(manifest_markdown_path),
         },
         "limitations": [
             "This dry run uses deterministic in-process events and a local SQLite fixture.",
@@ -123,7 +265,24 @@ def run_ci_dry_run(
             "Use scripts/ai_live_eval.py for end-to-end Redis-backed behavior.",
         ],
     }
-    write_json(output_dir / "summary.json", summary)
+    write_json(summary_path, summary)
+    manifest = build_manifest(
+        output_dir=output_dir,
+        summary=summary,
+        artifact_paths={
+            "synthetic_json": synthetic_path,
+            "persisted_json": persisted_path,
+            "research_json": research_json_path,
+            "research_markdown": research_markdown_path,
+            "summary_json": summary_path,
+            "telemetry_db": telemetry_db_path,
+        },
+    )
+    write_json(manifest_json_path, manifest)
+    manifest_markdown_path.write_text(
+        render_manifest_markdown(manifest),
+        encoding="utf-8",
+    )
     return summary
 
 
@@ -149,7 +308,16 @@ def main() -> None:
         default=1_734_000_000,
         help="Deterministic timestamp used in generated reports.",
     )
+    parser.add_argument(
+        "--list-scenarios",
+        action="store_true",
+        help="Print available persisted fixture scenarios and exit.",
+    )
     args = parser.parse_args()
+
+    if args.list_scenarios:
+        sys.stdout.write(f"{json.dumps(scenario_index(), indent=2)}\n")
+        return
 
     summary = run_ci_dry_run(
         output_dir=Path(args.output_dir),

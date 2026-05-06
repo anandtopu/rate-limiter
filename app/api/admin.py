@@ -1,7 +1,8 @@
 from pathlib import Path as FilePath
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, Request, Response, status
+from fastapi.responses import PlainTextResponse
 from pydantic import ValidationError
 
 import app.api.depends as rate_limit_depends
@@ -204,6 +205,7 @@ AI_RESEARCH_REPORT_RESPONSE_EXAMPLE = {
     "modified_at": 1_734_000_000.0,
     "line_count": 42,
     "content_type": "text/markdown",
+    "download_url": "/admin/ai/research-report?format=markdown&download=true",
     "content": "# AI Rate Limiter Research Report\n\n## Summary\n\n- Overall status: `stable`\n",
 }
 
@@ -320,7 +322,21 @@ async def get_ai_anomalies():
         404: {"description": "Configured AI research report artifact was not found."},
     },
 )
-async def get_ai_research_report():
+async def get_ai_research_report(
+    format: Literal["json", "markdown"] = Query(
+        "json",
+        description="Return JSON metadata plus content, or raw Markdown content.",
+        openapi_examples={
+            "json_view": {"summary": "JSON view", "value": "json"},
+            "markdown_view": {"summary": "Markdown view", "value": "markdown"},
+        },
+    ),
+    download: bool = Query(
+        False,
+        description="When format=markdown, send Content-Disposition as an attachment.",
+        openapi_examples={"download_file": {"summary": "Download file", "value": True}},
+    ),
+):
     configured_path = settings.ai_research_report_path
     report_path = FilePath(configured_path)
     if not report_path.is_absolute():
@@ -341,6 +357,17 @@ async def get_ai_research_report():
         ) from exc
 
     stat = report_path.stat()
+    if format == "markdown":
+        disposition = "attachment" if download else "inline"
+        filename = report_path.name or "AI_RESEARCH_REPORT.md"
+        return PlainTextResponse(
+            content,
+            media_type="text/markdown; charset=utf-8",
+            headers={
+                "Content-Disposition": f'{disposition}; filename="{filename}"',
+            },
+        )
+
     return {
         "schema_version": 1,
         "path": configured_path,
@@ -349,6 +376,7 @@ async def get_ai_research_report():
         "modified_at": stat.st_mtime,
         "line_count": len(content.splitlines()),
         "content_type": "text/markdown",
+        "download_url": "/admin/ai/research-report?format=markdown&download=true",
         "content": content,
     }
 

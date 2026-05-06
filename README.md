@@ -32,7 +32,7 @@ This repository has been upgraded into a portfolio-ready "Rate Limiter Control P
 - **Live AI Evaluation**: `scripts/ai_live_eval.py` drives a running app over HTTP and compares captured Redis-backed behavior with the synthetic AI evaluation baseline.
 - **AI Research Report Artifact**: `scripts/ai_research_report.py` generates a compact Markdown report from synthetic, live, outage, and persisted evaluation summaries.
 - **CI AI Dry Run**: `scripts/ai_ci_dry_run.py` generates synthetic and seeded SQLite evaluation artifacts without Docker, Redis, or a live app.
-- **CI AI Artifacts**: GitHub Actions uploads the AI dry-run report bundle as the `ai-ci-dry-run` artifact.
+- **CI AI Artifacts**: GitHub Actions uploads the AI dry-run report bundle as the `ai-ci-dry-run` artifact, including `MANIFEST.md` and `manifest.json` indexes.
 - **AI Research Report API**: `GET /admin/ai/research-report` exposes the latest generated Markdown report to the dashboard and admin clients.
 - **Admin Rule API**: `X-Admin-Key` protects rule inspect, validate, update, approval, and reload endpoints.
 - **Operational Endpoints**: `/health`, `/ready`, and `/metrics` expose process health, Redis readiness, and Prometheus-style counters.
@@ -202,6 +202,22 @@ docker compose up --build
 .\.venv\Scripts\python.exe scripts\redis_outage_demo.py --base-url http://localhost:8001
 ```
 
+## CI Artifacts
+
+GitHub Actions uploads these review artifacts from the main CI job:
+
+| Artifact | Source | What to open first |
+| --- | --- | --- |
+| `coverage-xml` | `coverage.xml` from `pytest --cov=app --cov=scripts` | Use for coverage tooling or line-level coverage review. |
+| `cyclonedx-sbom` | `sbom.json` from `cyclonedx-py requirements` | Use for dependency inventory and supply-chain review. |
+| `ai-ci-dry-run` | `tmp-test-data/ai-ci-dry-run` from `scripts/ai_ci_dry_run.py` | Open `MANIFEST.md`, then `AI_RESEARCH_REPORT.md`, then `summary.json`. |
+
+The AI dry-run artifact is intentionally self-contained and CI-safe. It does not require Docker, Redis, network access, or a running app. To inspect available seeded replay scenarios locally:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\ai_ci_dry_run.py --list-scenarios
+```
+
 ## Configuration
 
 Rules live in [rules.json](rules.json).
@@ -352,7 +368,7 @@ The policy copilot endpoint is disabled by default. When enabled with `AI_COPILO
 
 The generated OpenAPI schema includes examples for rule metadata, dry runs, imports, rollbacks, and persistent telemetry filters. Open `/docs` while the app is running to use those examples from Swagger UI.
 
-The AI research report endpoint returns the configured Markdown artifact with metadata, and the dashboard includes an AI Research Report panel that loads it with `X-Admin-Key`.
+The AI research report endpoint returns the configured Markdown artifact with metadata by default, can return raw `text/markdown` with `?format=markdown`, and the dashboard includes an AI Research Report panel that loads the JSON view or downloads the Markdown with `X-Admin-Key`.
 
 ## Portfolio Demo Walkthrough
 
@@ -460,7 +476,13 @@ Run a CI-friendly AI evaluation dry run with no Docker, Redis, or live app:
 .\.venv\Scripts\python.exe scripts\ai_ci_dry_run.py
 ```
 
-This writes deterministic artifacts under `tmp-test-data\ai-ci-dry-run`: a synthetic evaluation JSON report, a seeded local SQLite telemetry fixture, a persisted replay JSON report, a combined research report JSON file, and a Markdown research report. It is the safest automation command for CI jobs that only need advisor and reporting regression coverage. GitHub Actions runs the same command and uploads the directory as the `ai-ci-dry-run` artifact.
+This writes deterministic artifacts under `tmp-test-data\ai-ci-dry-run`: a synthetic evaluation JSON report, a seeded local SQLite telemetry fixture, a persisted replay JSON report, a combined research report JSON file, a Markdown research report, and `MANIFEST.md`/`manifest.json` indexes with file paths, byte counts, statuses, and reviewer entrypoints. It is the safest automation command for CI jobs that only need advisor and reporting regression coverage. GitHub Actions runs the same command and uploads the directory as the `ai-ci-dry-run` artifact.
+
+List the available seeded fixture scenarios:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\ai_ci_dry_run.py --list-scenarios
+```
 
 Replay a persisted telemetry window from a demo run:
 
@@ -504,6 +526,12 @@ Load the latest generated report through the admin API:
 
 ```bash
 curl http://localhost:8001/admin/ai/research-report -H "X-Admin-Key: dev-admin-key"
+```
+
+Download the raw Markdown form:
+
+```bash
+curl "http://localhost:8001/admin/ai/research-report?format=markdown&download=true" -H "X-Admin-Key: dev-admin-key" -o AI_RESEARCH_REPORT.md
 ```
 
 View passive telemetry:
@@ -634,5 +662,18 @@ Completed in this upgrade pass:
 - AI-H7: CI-friendly AI dry-run command that produces synthetic, seeded persisted, and research-report artifacts without Docker, Redis, or a live app.
 - AI-H8: admin API and dashboard panel for loading the latest generated AI research report artifact.
 - AI-H9: CI workflow step that runs the AI dry-run command and uploads the generated artifact bundle.
+- AI-H10: raw Markdown/download response mode for the AI research report admin endpoint.
+- AI-H11: manifest files inside the AI CI artifact bundle with artifact paths, statuses, byte counts, and review entrypoints.
+- AI-H12: dashboard download control for the raw Markdown AI research report.
+- AI-H13: README CI artifact guidance for `coverage-xml`, `cyclonedx-sbom`, and `ai-ci-dry-run`.
+- AI-H14: dashboard report download status includes a saved filename and byte count.
+- AI-H15: dashboard report download uses the server-provided `Content-Disposition` filename.
+- AI-H16: AI research report JSON metadata includes a canonical `download_url`.
+- AI-H17: dashboard JSON view displays the report `download_url`.
+- AI-H18: `scripts/ai_ci_dry_run.py --list-scenarios` lists seeded persisted replay scenarios.
+- AI-H19: AI CI manifest tests cover reviewer entrypoints, section counts, and artifact statuses.
+- AI-H20: README CI artifact quick-reference table for reviewer workflows.
+- AI-H21: backlog, roadmap, design, and implementation docs synchronized through AI-H20.
+- AI-H22: final verification and generated artifact refresh for this 10-item follow-up batch.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.

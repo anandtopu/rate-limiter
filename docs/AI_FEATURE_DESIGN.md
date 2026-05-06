@@ -138,6 +138,10 @@ Advisor output should use a common schema:
 - Add a CI-friendly dry-run wrapper that produces synthetic, seeded persisted, and research-report artifacts without Docker, Redis, network calls, or a live app.
 - Expose the latest generated Markdown report through an admin-only endpoint and dashboard panel.
 - Run the CI-friendly dry-run wrapper in GitHub Actions and upload its generated artifact bundle.
+- Support both JSON metadata and raw Markdown/download responses for the generated report endpoint.
+- Add manifest/index files to the CI dry-run artifact bundle so reviewers can find reports and statuses without opening every JSON file.
+- Add a dashboard download action for the generated Markdown report, using the current admin key.
+- Add reviewer-oriented CI artifact guidance, report download metadata, dashboard download status feedback, and seeded-scenario discovery for CI dry runs.
 
 ## Rollout Strategy
 
@@ -146,4 +150,4 @@ Advisor output should use a common schema:
 3. Add replay dry-run and dashboard summaries.
 4. Add anomaly APIs and scenario tests. (Done in AI-P3.)
 5. Add optional LLM copilot with fake adapter tests. (Done in AI-P4; OpenAI-compatible HTTP adapter added in AI-H2.)
-6. Publish evaluation results and limitations. (Done in AI-P5; live HTTP comparison added in AI-H3; persisted telemetry replay added in AI-H4; live Redis outage coverage added in AI-H5; report artifact added in AI-H6; CI dry-run artifact path added in AI-H7; admin report endpoint and dashboard panel added in AI-H8; CI artifact upload added in AI-H9.)
+6. Publish evaluation results and limitations. (Done in AI-P5; live HTTP comparison added in AI-H3; persisted telemetry replay added in AI-H4; live Redis outage coverage added in AI-H5; report artifact added in AI-H6; CI dry-run artifact path added in AI-H7; admin report endpoint and dashboard panel added in AI-H8; CI artifact upload added in AI-H9; raw report download mode added in AI-H10; CI artifact manifest added in AI-H11; dashboard report download added in AI-H12; reviewer ergonomics and scenario discovery added through AI-H22.)
