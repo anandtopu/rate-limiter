@@ -89,6 +89,8 @@ async def test_admin_ai_research_report_endpoint_returns_markdown_artifact(clien
     assert body["last_modified"] == response.headers["last-modified"]
     assert response.headers["etag"].startswith('W/"')
     assert response.headers["cache-control"] == "no-cache"
+    assert response.headers["x-report-bytes"] == str(report_path.stat().st_size)
+    assert response.headers["x-report-lines"] == "5"
 
 
 @pytest.mark.asyncio
@@ -121,6 +123,8 @@ async def test_admin_ai_research_report_endpoint_honors_if_none_match(client):
     assert response.headers["etag"] == first_response.headers["etag"]
     assert response.headers["last-modified"] == first_response.headers["last-modified"]
     assert response.headers["cache-control"] == "no-cache"
+    assert response.headers["x-report-bytes"] == first_response.headers["x-report-bytes"]
+    assert response.headers["x-report-lines"] == first_response.headers["x-report-lines"]
 
 
 @pytest.mark.asyncio
@@ -146,6 +150,8 @@ async def test_admin_ai_research_report_head_returns_freshness_metadata(client):
     assert response.headers["etag"].startswith('W/"')
     assert response.headers["last-modified"]
     assert response.headers["cache-control"] == "no-cache"
+    assert response.headers["x-report-bytes"] == str(report_path.stat().st_size)
+    assert response.headers["x-report-lines"] == "1"
     assert "text/markdown" in response.headers["content-type"]
     assert response.headers["content-disposition"] == (
         'attachment; filename="AI_RESEARCH_REPORT.md"'
@@ -182,6 +188,8 @@ async def test_admin_ai_research_report_head_honors_if_none_match(client):
     assert response.headers["etag"] == first_response.headers["etag"]
     assert response.headers["last-modified"] == first_response.headers["last-modified"]
     assert response.headers["cache-control"] == "no-cache"
+    assert response.headers["x-report-bytes"] == first_response.headers["x-report-bytes"]
+    assert response.headers["x-report-lines"] == first_response.headers["x-report-lines"]
 
 
 @pytest.mark.asyncio
@@ -231,6 +239,8 @@ async def test_admin_ai_research_report_endpoint_can_return_markdown_download(cl
     assert response.headers["etag"].startswith('W/"')
     assert response.headers["last-modified"]
     assert response.headers["cache-control"] == "no-cache"
+    assert response.headers["x-report-bytes"] == str(report_path.stat().st_size)
+    assert response.headers["x-report-lines"] == "3"
     assert response.text == markdown
 
 
@@ -249,7 +259,7 @@ async def test_admin_ai_research_report_markdown_honors_if_modified_since(client
     first_response = await client.get(
         "/admin/ai/research-report",
         headers={"X-Admin-Key": "dev-admin-key"},
-        params={"format": "markdown"},
+        params={"format": "markdown", "download": "true"},
     )
 
     response = await client.get(
@@ -258,7 +268,7 @@ async def test_admin_ai_research_report_markdown_honors_if_modified_since(client
             "X-Admin-Key": "dev-admin-key",
             "If-Modified-Since": first_response.headers["last-modified"],
         },
-        params={"format": "markdown"},
+        params={"format": "markdown", "download": "true"},
     )
 
     assert response.status_code == 304
@@ -266,6 +276,11 @@ async def test_admin_ai_research_report_markdown_honors_if_modified_since(client
     assert response.headers["etag"] == first_response.headers["etag"]
     assert response.headers["last-modified"] == first_response.headers["last-modified"]
     assert response.headers["cache-control"] == "no-cache"
+    assert response.headers["x-report-bytes"] == first_response.headers["x-report-bytes"]
+    assert response.headers["x-report-lines"] == first_response.headers["x-report-lines"]
+    assert response.headers["content-disposition"] == (
+        'attachment; filename="AI_RESEARCH_REPORT.md"'
+    )
 
 
 @pytest.mark.asyncio

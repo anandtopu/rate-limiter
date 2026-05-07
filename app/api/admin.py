@@ -318,6 +318,30 @@ def research_report_freshness_headers(report_path: FilePath) -> dict[str, str]:
     }
 
 
+def read_research_report_content(report_path: FilePath) -> str:
+    try:
+        return report_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="AI research report artifact must be UTF-8 Markdown",
+        ) from exc
+
+
+def research_report_metadata_headers(report_path: FilePath, content: str) -> dict[str, str]:
+    stat = report_path.stat()
+    return {
+        "X-Report-Bytes": str(stat.st_size),
+        "X-Report-Lines": str(len(content.splitlines())),
+    }
+
+
+def research_report_content_disposition(report_path: FilePath, download: bool) -> str:
+    disposition = "attachment" if download else "inline"
+    filename = report_path.name or "AI_RESEARCH_REPORT.md"
+    return f'{disposition}; filename="{filename}"'
+
+
 def configured_research_report_path() -> tuple[str, FilePath]:
     configured_path = settings.ai_research_report_path
     report_path = FilePath(configured_path)
@@ -383,19 +407,25 @@ async def head_ai_research_report(
     ),
 ):
     _, report_path = require_research_report_path()
+    content = read_research_report_content(report_path)
     freshness_headers = research_report_freshness_headers(report_path)
+    report_headers = {
+        **freshness_headers,
+        **research_report_metadata_headers(report_path, content),
+    }
     if format == "markdown":
-        disposition = "attachment" if download else "inline"
-        filename = report_path.name or "AI_RESEARCH_REPORT.md"
-        freshness_headers["Content-Disposition"] = f'{disposition}; filename="{filename}"'
+        report_headers["Content-Disposition"] = research_report_content_disposition(
+            report_path,
+            download,
+        )
 
     response_status = (
         status.HTTP_304_NOT_MODIFIED
-        if research_report_not_modified(request, report_path, freshness_headers["ETag"])
+        if research_report_not_modified(request, report_path, report_headers["ETag"])
         else status.HTTP_200_OK
     )
     media_type = "text/markdown; charset=utf-8" if format == "markdown" else "application/json"
-    return Response(status_code=response_status, headers=freshness_headers, media_type=media_type)
+    return Response(status_code=response_status, headers=report_headers, media_type=media_type)
 
 
 @router.get(
@@ -436,31 +466,29 @@ async def get_ai_research_report(
     configured_path, report_path = require_research_report_path()
 
     stat = report_path.stat()
+    content = read_research_report_content(report_path)
     freshness_headers = research_report_freshness_headers(report_path)
-    if research_report_not_modified(request, report_path, freshness_headers["ETag"]):
-        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=freshness_headers)
+    report_headers = {
+        **freshness_headers,
+        **research_report_metadata_headers(report_path, content),
+    }
+    if format == "markdown":
+        report_headers["Content-Disposition"] = research_report_content_disposition(
+            report_path,
+            download,
+        )
 
-    try:
-        content = report_path.read_text(encoding="utf-8")
-    except UnicodeDecodeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="AI research report artifact must be UTF-8 Markdown",
-        ) from exc
+    if research_report_not_modified(request, report_path, freshness_headers["ETag"]):
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=report_headers)
 
     if format == "markdown":
-        disposition = "attachment" if download else "inline"
-        filename = report_path.name or "AI_RESEARCH_REPORT.md"
         return PlainTextResponse(
             content,
             media_type="text/markdown; charset=utf-8",
-            headers={
-                **freshness_headers,
-                "Content-Disposition": f'{disposition}; filename="{filename}"',
-            },
+            headers=report_headers,
         )
 
-    response.headers.update(freshness_headers)
+    response.headers.update(report_headers)
     return {
         "schema_version": 1,
         "path": configured_path,

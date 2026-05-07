@@ -1,6 +1,11 @@
 const state = {
   events: [],
   maxEvents: 30,
+  aiResearchReport: {
+    etag: null,
+    lastModified: null,
+    view: null,
+  },
 };
 
 const els = {
@@ -290,9 +295,31 @@ async function loadAnomalies() {
 }
 
 async function loadAIResearchReport() {
+  const headers = requestHeaders(true);
+  if (state.aiResearchReport.etag) {
+    headers["If-None-Match"] = state.aiResearchReport.etag;
+  } else if (state.aiResearchReport.lastModified) {
+    headers["If-Modified-Since"] = state.aiResearchReport.lastModified;
+  }
+
   const response = await fetch("/admin/ai/research-report", {
-    headers: requestHeaders(true),
+    headers,
   });
+
+  if (response.status === 304) {
+    els.aiResearchReportOutput.textContent = pretty({
+      unchanged: true,
+      status: response.status,
+      etag: state.aiResearchReport.etag || response.headers.get("ETag"),
+      last_modified: state.aiResearchReport.lastModified
+        || response.headers.get("Last-Modified"),
+      report_bytes: response.headers.get("X-Report-Bytes"),
+      report_lines: response.headers.get("X-Report-Lines"),
+      report: state.aiResearchReport.view,
+    });
+    return;
+  }
+
   const body = await readJson(response);
 
   if (!response.ok) {
@@ -300,17 +327,24 @@ async function loadAIResearchReport() {
     return;
   }
 
-  els.aiResearchReportOutput.textContent = pretty({
+  const view = {
     path: body.path,
     bytes: body.bytes,
     modified_at: body.modified_at,
     etag: body.etag,
     last_modified: body.last_modified,
+    report_bytes: response.headers.get("X-Report-Bytes"),
+    report_lines: response.headers.get("X-Report-Lines"),
     line_count: body.line_count,
     content_type: body.content_type,
     download_url: body.download_url,
     markdown: body.content,
-  });
+  };
+  state.aiResearchReport.etag = response.headers.get("ETag") || body.etag;
+  state.aiResearchReport.lastModified = response.headers.get("Last-Modified")
+    || body.last_modified;
+  state.aiResearchReport.view = view;
+  els.aiResearchReportOutput.textContent = pretty(view);
 }
 
 function downloadFilename(response) {

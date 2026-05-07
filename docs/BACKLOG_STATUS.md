@@ -76,6 +76,9 @@
 - Add AI research report freshness headers and dashboard metadata for artifact version review.
 - Add conditional request support for AI research report JSON and Markdown responses.
 - Add `HEAD` support for AI research report artifact metadata checks.
+- Add cache-aware dashboard reloads for the AI Research Report panel.
+- Add report byte and line-count headers for AI research report artifact checks.
+- Preserve Markdown report `Content-Disposition` filename metadata on conditional `304` download responses.
 
 ## Remaining
 
@@ -95,6 +98,9 @@
 
 - The original portfolio upgrade backlog is complete through Phase 35. The new queue is the AI research upgrade described in [AI_RESEARCH_ROADMAP.md](AI_RESEARCH_ROADMAP.md).
 - The AI research queue is complete through AI-P5. Next work should be selected from new user priorities or follow-up hardening identified by the evaluation report.
+- The thirtieth post-AI-P5 hardening pass preserves Markdown report `Content-Disposition` filename metadata on conditional `304 Not Modified` download responses.
+- The twenty-ninth post-AI-P5 hardening pass adds `X-Report-Bytes` and `X-Report-Lines` headers to AI research report `GET`, `HEAD`, and `304` responses for lightweight artifact review.
+- The twenty-eighth post-AI-P5 hardening pass makes the dashboard AI Research Report panel send cached validators and display unchanged `304 Not Modified` results without re-downloading report content.
 - The twenty-seventh post-AI-P5 hardening pass adds `HEAD /admin/ai/research-report` so review clients can inspect artifact freshness metadata without downloading a response body.
 - The twenty-sixth post-AI-P5 hardening pass makes AI research report JSON and Markdown responses honor `If-None-Match` and `If-Modified-Since` with `304 Not Modified`.
 - The twenty-fifth post-AI-P5 hardening pass adds `ETag`, `Last-Modified`, and `Cache-Control` metadata to AI research report JSON and Markdown responses.

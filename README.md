@@ -34,7 +34,7 @@ This repository has been upgraded into a portfolio-ready "Rate Limiter Control P
 - **CI AI Dry Run**: `scripts/ai_ci_dry_run.py` generates synthetic and seeded SQLite evaluation artifacts without Docker, Redis, or a live app.
 - **CI AI Artifacts**: GitHub Actions uploads the AI dry-run report bundle as the `ai-ci-dry-run` artifact, including `MANIFEST.md` and `manifest.json` indexes.
 - **AI Research Report API**: `GET` and `HEAD /admin/ai/research-report` expose the latest generated Markdown report and artifact metadata to the dashboard and admin clients.
-- **AI Report Freshness Metadata**: Research report responses include `ETag`, `Last-Modified`, and `Cache-Control` headers, and honor conditional requests with `304 Not Modified`.
+- **AI Report Freshness Metadata**: Research report responses include freshness plus artifact-shape headers such as `ETag`, `Last-Modified`, `X-Report-Bytes`, and `X-Report-Lines`; conditional requests return `304 Not Modified`, and the dashboard reuses validators on repeated loads.
 - **Dashboard Screenshot Refresh**: `scripts/dashboard_screenshots.py` can refresh desktop and mobile dashboard screenshots with the AI Research Report panel loaded when Playwright is installed.
 - **Admin Rule API**: `X-Admin-Key` protects rule inspect, validate, update, approval, and reload endpoints.
 - **Operational Endpoints**: `/health`, `/ready`, and `/metrics` expose process health, Redis readiness, and Prometheus-style counters.
@@ -378,7 +378,7 @@ The policy copilot endpoint is disabled by default. When enabled with `AI_COPILO
 
 The generated OpenAPI schema includes examples for rule metadata, dry runs, imports, rollbacks, and persistent telemetry filters. Open `/docs` while the app is running to use those examples from Swagger UI.
 
-The AI research report endpoint returns the configured Markdown artifact with metadata by default, can return raw `text/markdown` with `?format=markdown`, and includes `ETag`, `Last-Modified`, and `Cache-Control: no-cache` headers for freshness-aware clients. It honors `If-None-Match` and `If-Modified-Since` with `304 Not Modified` when the artifact has not changed, and `HEAD /admin/ai/research-report` exposes the same freshness metadata without a response body. The dashboard includes an AI Research Report panel that loads the JSON view or downloads the Markdown with `X-Admin-Key`.
+The AI research report endpoint returns the configured Markdown artifact with metadata by default, can return raw `text/markdown` with `?format=markdown`, and includes `ETag`, `Last-Modified`, `Cache-Control: no-cache`, `X-Report-Bytes`, and `X-Report-Lines` headers for freshness-aware clients. It honors `If-None-Match` and `If-Modified-Since` with `304 Not Modified` when the artifact has not changed, and `HEAD /admin/ai/research-report` exposes the same metadata without a response body. The dashboard includes an AI Research Report panel that loads the JSON view, reuses cached validators on refresh, or downloads the Markdown with `X-Admin-Key`.
 
 ## Portfolio Demo Walkthrough
 
@@ -690,5 +690,8 @@ Completed in this upgrade pass:
 - AI-H25: AI research report JSON and Markdown responses expose standard freshness headers and dashboard metadata.
 - AI-H26: AI research report JSON and Markdown responses honor conditional request headers with `304 Not Modified`.
 - AI-H27: AI research report endpoint supports metadata-only `HEAD` checks with the same freshness behavior.
+- AI-H28: dashboard AI Research Report reloads use cached validators and display unchanged `304 Not Modified` results.
+- AI-H29: AI research report responses expose `X-Report-Bytes` and `X-Report-Lines` headers for lightweight artifact review.
+- AI-H30: conditional Markdown report downloads preserve `Content-Disposition` filename metadata on `304 Not Modified` responses.
 
 See [docs/PRODUCT_REQUIREMENTS.md](docs/PRODUCT_REQUIREMENTS.md), [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md), and [docs/EXECUTION_STRATEGY.md](docs/EXECUTION_STRATEGY.md) for the full product and execution plan.
