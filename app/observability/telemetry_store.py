@@ -115,26 +115,12 @@ class SQLiteTelemetryStore:
                 ),
             )
 
-    def _time_filter(
+    def _time_filter_params(
         self,
         since: float | None = None,
         until: float | None = None,
-    ) -> tuple[str, list[float]]:
-        clauses = []
-        params: list[float] = []
-
-        if since is not None:
-            clauses.append("timestamp >= ?")
-            params.append(since)
-
-        if until is not None:
-            clauses.append("timestamp <= ?")
-            params.append(until)
-
-        if not clauses:
-            return "", params
-
-        return f"WHERE {' AND '.join(clauses)}", params
+    ) -> tuple[float | None, float | None, float | None, float | None]:
+        return since, since, until, until
 
     def recent(
         self,
@@ -142,11 +128,11 @@ class SQLiteTelemetryStore:
         since: float | None = None,
         until: float | None = None,
     ) -> list[dict[str, Any]]:
-        where_sql, params = self._time_filter(since=since, until=until)
+        params = self._time_filter_params(since=since, until=until)
         with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
-                f"""
+                """
                 SELECT
                     id,
                     timestamp,
@@ -168,7 +154,8 @@ class SQLiteTelemetryStore:
                     status_code,
                     latency_ms
                 FROM rate_limit_events
-                {where_sql}
+                WHERE (? IS NULL OR timestamp >= ?)
+                AND (? IS NULL OR timestamp <= ?)
                 ORDER BY id DESC
                 LIMIT ?
                 """,
@@ -189,17 +176,18 @@ class SQLiteTelemetryStore:
         since: float | None = None,
         until: float | None = None,
     ) -> dict[str, Any]:
-        where_sql, params = self._time_filter(since=since, until=until)
+        params = self._time_filter_params(since=since, until=until)
         with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             row = conn.execute(
-                f"""
+                """
                 SELECT
                     COUNT(*) AS events,
                     SUM(CASE WHEN allowed = 0 THEN 1 ELSE 0 END) AS denied,
                     SUM(CASE WHEN redis_fail_open = 1 THEN 1 ELSE 0 END) AS redis_fail_open
                 FROM rate_limit_events
-                {where_sql}
+                WHERE (? IS NULL OR timestamp >= ?)
+                AND (? IS NULL OR timestamp <= ?)
                 """,
                 params,
             ).fetchone()
@@ -217,18 +205,19 @@ class SQLiteTelemetryStore:
         since: float | None = None,
         until: float | None = None,
     ) -> dict[str, Any]:
-        where_sql, params = self._time_filter(since=since, until=until)
+        params = self._time_filter_params(since=since, until=until)
         with self._connect() as conn:
             conn.row_factory = sqlite3.Row
             routes = conn.execute(
-                f"""
+                """
                 SELECT
                     route_path,
                     COUNT(*) AS requests,
                     SUM(CASE WHEN allowed = 0 THEN 1 ELSE 0 END) AS denied,
                     SUM(CASE WHEN redis_fail_open = 1 THEN 1 ELSE 0 END) AS redis_fail_open
                 FROM rate_limit_events
-                {where_sql}
+                WHERE (? IS NULL OR timestamp >= ?)
+                AND (? IS NULL OR timestamp <= ?)
                 GROUP BY route_path
                 ORDER BY requests DESC, route_path ASC
                 LIMIT ?
@@ -236,13 +225,14 @@ class SQLiteTelemetryStore:
                 (*params, limit),
             ).fetchall()
             offenders = conn.execute(
-                f"""
+                """
                 SELECT
                     identifier,
                     COUNT(*) AS denied
                 FROM rate_limit_events
                 WHERE allowed = 0
-                {"AND " + where_sql.removeprefix("WHERE ") if where_sql else ""}
+                AND (? IS NULL OR timestamp >= ?)
+                AND (? IS NULL OR timestamp <= ?)
                 GROUP BY identifier
                 ORDER BY denied DESC, identifier ASC
                 LIMIT ?

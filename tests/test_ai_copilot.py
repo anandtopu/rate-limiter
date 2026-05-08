@@ -147,6 +147,15 @@ def test_openai_compatible_adapter_rejects_nonpositive_timeout():
         )
 
 
+def test_openai_compatible_adapter_rejects_non_http_endpoint():
+    with pytest.raises(CopilotConfigurationError, match=r"HTTP\(S\) URL"):
+        get_policy_copilot_adapter(
+            enabled=True,
+            provider="openai_compatible",
+            endpoint="file:///tmp/copilot-response.json",
+        )
+
+
 @pytest.mark.asyncio
 async def test_policy_copilot_is_disabled_by_default(client):
     response = await client.post(
