@@ -329,6 +329,10 @@ This keeps runtime behavior deterministic and gives every AI proposal the same s
 24. Configure explicit CI artifact retention for coverage, SBOM, and AI dry-run bundles.
 25. Add standard freshness headers to generated AI research report responses.
 26. Honor conditional request headers for unchanged generated AI research report responses.
+27. Add metadata-only `HEAD` checks for generated AI research report responses.
+28. Reuse cached validators when the dashboard reloads generated AI research report responses.
+29. Expose generated AI research report byte and line-count metadata as response headers.
+30. Preserve generated AI research report download filename metadata on conditional Markdown `304 Not Modified` responses.
 
 ### Safety Requirements
 

@@ -1,6 +1,7 @@
 import json
 from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from pydantic import BaseModel, Field, ValidationError
@@ -126,7 +127,7 @@ class OpenAICompatiblePolicyCopilotAdapter:
         )
 
         try:
-            with urlopen(request, timeout=self.timeout_s) as response:
+            with urlopen(request, timeout=self.timeout_s) as response:  # nosec B310
                 raw_body = response.read()
         except HTTPError as exc:
             raise CopilotProviderError(
@@ -229,6 +230,11 @@ def get_policy_copilot_adapter(
         if not normalized_endpoint:
             raise CopilotConfigurationError(
                 "AI policy copilot provider requires AI_COPILOT_ENDPOINT"
+            )
+        parsed_endpoint = urlparse(normalized_endpoint)
+        if parsed_endpoint.scheme not in {"http", "https"} or not parsed_endpoint.netloc:
+            raise CopilotConfigurationError(
+                "AI policy copilot endpoint must be an HTTP(S) URL"
             )
         normalized_model = model.strip() if model else "policy-copilot"
         if timeout_s <= 0:
